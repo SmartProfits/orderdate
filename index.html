@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Airport Stock Request</title>
+		<style>
+        * {
+  box-sizing: border-box;
+}
+
+
+.container {
+  --characters: 26;
+  --typingSpeed: 5s;
+  
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 3em;
+  
+  .text {
+    position: relative;
+    
+    &::before, &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    &::before {
+      background: #FCEEDD;
+      animation: typing var(--typingSpeed) steps(var(--characters)) 2s infinite;
+    }
+    &::after {
+      background: green;
+      width: 1ch;
+      animation: 
+        typing var(--typingSpeed) steps(var(--characters)) 2s infinite,
+        blinking 0.25s ease alternate infinite;
+    }
+  }
+}
+
+@keyframes blinking {
+  to {
+    background: transparent;
+  }
+}
+
+@keyframes typing {
+  80%, 100% {
+    left: 100%;
+  }
+}
+						        body {
+						            font-family: Arial, sans-serif;
+						            padding: 15px;
+						            margin: 0;
+						            background-color: #FCEEDD; /* 柔和的浅灰背景 */
+						            color: #333; /* 深色字体提升对比度 */
+						            transition: background-color 0.3s, color 0.3s; /* 添加过渡效果 */
+						        }
+
+
+						        /* 黑暗模式 */
+						        body.dark-mode {
+						            background-color: #1c1c1c; /* 深灰色背景 */
+						            color: #e0e0e0; /* 浅色字体 */
+						        }
+
+						        /* 添加一个容器类来包含目录的label */
+						        .category-container {
+						            display: grid;
+						            grid-template-columns: repeat(3, 1fr); /* 每行3列，每列平分宽度 */
+						            gap: 10px; /* 项目之间的间距 */
+						            margin-bottom: 20px;
+						        }
+
+						        body.dark-mode #result {
+						            background-color: #333; /* 黑暗模式下的结果框颜色 */
+						            color: #e0e0e0; /* 浅色字体 */
+						        }
+
+						        body.dark-mode button {
+						            background-color: #444; /* 按钮背景颜色 */
+						            color: #e0e0e0; /* 按钮字体颜色 */
+						        }
+
+						        body.dark-mode .whatsapp-button {
+						            background-color: #075e54; /* 深色WhatsApp绿色 */
+						            color: #e0e0e0; /* 按钮字体颜色 */
+						        }
+
+						        /* 为每个商品项设置 flexbox 布局 */
+						        #productList div {
+						            display: flex;
+						            justify-content: space-between; /* 商品名称和输入框分布两侧 */
+						            align-items: center; /* 垂直居中对齐 */
+						            margin-bottom: 15px; /* 保持每个商品项之间的间距 */
+						        }
+
+						        /* 商品名称部分自适应占据左边空间 */
+						        #productList label {
+						            flex-grow: 1; /* 自动扩展，占据可用空间 */
+						            margin-right: 10px; /* 给输入框预留间距 */
+
+
+						        }
+
+						        #suggestions {
+						            border: 1px solid #ccc;
+						            max-height: 150px;
+						            overflow-y: auto;
+						            background-color: white;
+						            position: absolute;
+						            width: 220px;
+						            z-index: 10;
+						        }
+
+						        #suggestions div {
+						    padding: 4px; /* 调整上下的 padding 来减少间隔 */
+						    line-height: 0.6; /* 调小 line-height 以减少上下间距 */
+						    cursor: pointer;
+						    color: #333; /* 设置字体颜色为深灰色 */
+						}
+
+						}
+
+
+						        #suggestions div:hover {
+						            background-color: #f0f0f0;
+						        }
+
+						        /* 调整输入框大小并对齐右边 */
+						        input[type="number"] {
+						            width: 80px;
+						            margin-left: 10px;
+						            text-align: right; /* 使数字靠右显示 */
+						        }
+						        #productSearch {
+						    width: 210px; /* 调整为100%以适应容器宽度 */
+						    padding: 5px; /* 增加内边距以增大点击区域 */
+						    font-size: 1.2rem; /* 调整字体大小 */
+						    border-radius: 5px; /* 使边框圆润 */
+						    border: 1px solid #ccc; /* 设置边框颜色 */
+						}
+
+						        h1 {
+						            font-size: 2.5rem;
+						            font-weight: bold;
+						            text-align: center;
+						            margin-bottom: 110px;
+						        }
+
+						        #result {
+						            width: 100%;
+						            height: 150px;
+						            border: 1px solid #ccc;
+						            padding: 10px;
+						            margin-top: 10px;
+						            white-space: pre-wrap;
+						            overflow: auto;
+						            font-size: 1.1rem;
+						            background-color: #fff;
+						            border-radius: 8px;
+						        }
+
+						        div {
+						            margin-bottom: 15px;
+						        }
+
+						        label {
+						            font-size: 1.1rem;
+						        }
+
+						        input[type="number"], input[type="checkbox"] {
+						            font-size: 1rem;
+						        }
+
+						        button {
+						            padding: 12px 18px;
+						            font-size: 1.1rem;
+						            margin: 10px 0;
+						            cursor: pointer;
+						            width: 100%;
+						            border: none;
+						            border-radius: 8px;
+						        }
+
+						        /* WhatsApp 绿色按钮样式 */
+						        .whatsapp-button {
+						            background-color: #25D366; /* WhatsApp绿色 */
+						            color: white; /* 白色文字 */
+						        }
+
+						        /* 切换模式按钮样式 */
+						        .toggle-mode-btn {
+						            background-color: #007bff;
+						            color: white;
+						            padding: 10px 20px;
+						            margin-bottom: 20px;
+						            cursor: pointer;
+						            border: none;
+						            border-radius: 5px;
+						            font-size: 1rem;
+						        }
+
+						        .contact-info {
+						            font-size: 1rem;
+						            font-style: italic;
+						            color: #555; /* 稍微浅一点的颜色 */
+						            text-align: center;
+						            background-color: #f9f9f9; /* 柔和的背景色 */
+						            padding: 10px;
+						            border-radius: 8px;
+						            margin-bottom: 20px; /* 增加与下方内容的间距 */
+						            border: 1px solid #ddd; /* 添加浅色边框 */
+						        }
+
+						        @media (max-width: 768px) {
+						            h1 {
+						                font-size: 3rem;
+						            }
+
+						            body {
+						                padding: 10px;
+						            }
+
+						            button {
+						                padding: 10px 15px;
+						            }
+						        }
+
+						        .quantity-btn {
+						            width: 30px;
+						            height: 30px;
+						            border: none;
+						            border-radius: 50%; /* 圆形按钮 */
+						            cursor: pointer;
+						            font-size: 1.2rem;
+						            display: inline-flex;
+						            justify-content: center;
+						            align-items: center;
+						        }
+
+						        .quantity-btn:nth-child(3) {
+						            background-color: #4CAF50 ; /* 青色 */
+						            color: white;
+						        }
+
+						        .quantity-btn:nth-child(5) {
+						            background-color: #F44336; /* 红色 */
+						            color: white;
+						        }
+			                    .quantity-btn:hover {
+			    transform: scale(1.1); /* 放大按钮 */
+			    transition: transform 0.2s ease; /* 添加过渡效果 */
+			}
+			.quantity-btn:active {
+			    transform: scale(0.95); /* 按下时缩小按钮 */
+			    transition: transform 0.1s ease;
+			}
+			.quantity-btn {
+			    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+			}
+			.quantity-btn {
+			    transition: background-color 0.3s ease, color 0.3s ease;
+			}
+
+
+			                    input[type="number"] {
+			    width: 40px; /* 你可以根据需要调整为任何合适的大小 */
+			    padding: 5px; /* 调整内边距以使输入框看起来更舒适 */
+			    margin-left: 10px; /* 留出与其他元素的间距 */
+			    text-align: right; /* 保持数字靠右对齐 */
+			   }
+		</style>
+	</head>
+	<body>
+		<!-- 模式切换按钮 -->
+		<button class="toggle-mode-btn" onclick="toggleDarkMode()">切换至黑暗模式</button>
+
+		<h1>Stock Order</h1>
+        <div class="container">
+  <div class="text">
+    Kepayan Close 09/11 and 10/11 &nbsp;&nbsp;
+  </div>
+</div>
+
+		<h3>选择店铺</h3>
+		<div>
+			<label><input type="radio" name="store" value="*JKL*" onclick="toggleItems()" /> JKL</label>
+			<label><input type="radio" name="store" value="*TOM*" onclick="toggleItems()" /> TOM</label>
+			<label><input type="radio" name="store" value="*Ole-Ole*" onclick="toggleItems()" /> Ole-Ole</label>
+		</div>
+
+		<h3>选择目录</h3>
+
+		<div class="category-container">
+			<label><input type="radio" name="category" value="BanHeang" onclick="showCategory()" />BanHeang</label>
+			<label><input type="radio" name="category" value="HopHup" onclick="showCategory()" />HopHup</label>
+			<label><input type="radio" name="category" value="Chocolate" onclick="showCategory()" />Chocolate</label>
+			<label><input type="radio" name="category" value="Sotong" onclick="showCategory()" />Sotong</label>
+			<label><input type="radio" name="category" value="Coffee" onclick="showCategory()" />Coffee</label>
+			<label><input type="radio" name="category" value="Amplang" onclick="showCategory()" />Amplang</label>
+			<label><input type="radio" name="category" value="Other" onclick="showCategory()" />Other</label>
+		</div>
+
+		<input type="text" id="productSearch" placeholder="搜索商品..." oninput="searchProduct()" autocomplete="off" />
+		<div id="suggestions"></div>
+		<h3>选择商品（没输入数量默认是1）</h3>
+		<div id="productList"></div>
+
+		<button onclick="generateText()">生成文字</button>
+		<button class="whatsapp-button" onclick="copyAndSendWhatsApp()">复制并发送至WhatsApp</button>
+
+		<div id="result"></div>
+
+		<script>
+			        // 分类商品
+			        const categories = {
+			            BanHeang: [
+			                { id: 1, name: "Tambun Original" },
+			                { id: 2, name: "Tambun Pandan" },
+			                { id: 3, name: "Tambun White Lotus" },
+			                { id: 4, name: "Tau Sar Pheah" },
+			                { id: 5, name: "Heong Pheah" },
+			                { id: 6, name: "Beh Teh Saw" },
+			                { id: 7, name: "Phong Pheah" },
+			                { id: 8, name: "Pepper Biscuit" },
+			                { id: 9, name: "Hup Toh Soh" },
+			                { id: 10, name: "Omlette Crisp Chocolate" },
+			                { id: 11, name: "Omlette Crisp Pandan" },
+			                { id: 12, name: "Kai Chai Biscuit" },
+			                { id: 13, name: "Almond Slice" },
+			                { id: 14, name: "Almond Slice Salted Egg" },
+			                { id: 15, name: "Durian Crisp" },
+			                { id: 16, name: "Coconut Crisp" },
+			                { id: 17, name: "Salted Fish Crisp" },
+			                { id: 18, name: "Salted Egg Crisp" },
+			                { id: 19, name: "Cheese Crisp" },
+			                { id: 20, name: "Chic Kut Teh" },
+			                { id: 21, name: "Ginger Slice" },
+			                { id: 26, name: "Dried Mango" },
+			                { id: 27, name: "Kacang Tumbuk" },
+			                { id: 28, name: "Gula Kacang" },
+			                { id: 29, name: "Black Sesame Peanut" },
+			                { id: 30, name: "Shat Kek Ma" },
+			                { id: 31, name: "Shat Kek Ma (Brown Sugar)" },
+			                { id: 32, name: "Coconut Biscuits" },
+			                { id: 33, name: "BH Freeze Dried Durian" },
+			                { id: 34, name: "BH Freeze Dried Mango" },
+			                { id: 36, name: "Butter Cookies" },
+			                { id: 37, name: "Chocolate Cookies" },
+			                { id: 38, name: "Raisin Cookies" },
+			                { id: 39, name: "Almond Cookies" },
+			                { id: 40, name: "Pineapple Tart" },
+			                { id: 41, name: "Red Bean Mochi" },
+			                { id: 42, name: "Peanut Mochi" },
+			                { id: 43, name: "Green Tea Mochi" },
+			                { id: 44, name: "Durian Mochi" },
+			                { id: 45, name: "Yam Mochi" },
+			                { id: 46, name: "Mochi Milk Yam Filling" },
+			                { id: 47, name: "Mochi Milk Mango Filling" },
+			                { id: 48, name: "Mochi Milk Green Tea" },
+			                { id: 52, name: "Fillet Cracker With Anchovy" },
+			                { id: 53, name: "Fillet Cracker With Seaweed" },
+			                { id: 54, name: "Sakura Shrimp" },
+			                { id: 60, name: "Frugurt Yogurt Blueberry" },
+			                { id: 61, name: "Frugurt Yogurt Peach" },
+			                { id: 62, name: "Frugurt Yogurt Mango" },
+			                { id: 63, name: "Durian Pudding" },
+			                { id: 64, name: "Coconut Pudding" },
+			                { id: 65, name: "BH Dodol Durian" },
+			                { id: 66, name: "BH Dodol Coconut" },
+			                { id: 67, name: "BH Dodol Pandan" },
+			                { id: 68, name: "Durian Beh Teh Saw" },
+
+			            ],
+			            HopHup: [
+			                { id: 70, name: "Musang King Tart" },
+			                { id: 71, name: "Mango Tart" },
+			                { id: 72, name: "Durian Wafer Roll" },
+			                { id: 73, name: "Omelette Durian" },
+			                { id: 76, name: "HT Coconut Ori Cookies" },
+			                { id: 77, name: "HT Coconut Pandan Cookies" },
+			                { id: 78, name: "HT Dodol Kopi" },
+			                { id: 79, name: "HT Dodol Durian" },
+			                { id: 80, name: "HT Freeze Dried Mango" },
+			                { id: 81, name: "HT Freeze Dried Durian" },
+			                { id: 82, name: "Salted Egg Fish Skin" },
+			                { id: 83, name: "Salted Egg Fish Skin Spicy" },
+			                { id: 84, name: "Salted Egg Salmon Skin" },
+			                { id: 94, name: "Musang King Durian Candy" },
+			                { id: 126, name: "HT Dried Fruit Mango " }
+			            ],
+			           Chocolate: [
+			    { id: 108, name: "AD Chocolate Durian", unit: 'pc', defaultQuantity: 50 },
+			    { id: 109, name: "AD Chocolate Sabah Tea", unit: 'pc', defaultQuantity: 50 },
+			    { id: 110, name: "AD Chocolate Mango", unit: 'pc', defaultQuantity: 50 },
+			    { id: 111, name: "AD Chocolate Chili", unit: 'pc', defaultQuantity: 50 },
+			    { id: 112, name: "AD Chocolate Dark", unit: 'pc', defaultQuantity: 50 },
+			    { id: 113, name: "AD Chocolate Coffee", unit: 'pc', defaultQuantity: 50 },
+			    { id: 114, name: "AD Chocolate Banana", unit: 'pc', defaultQuantity: 50 },
+			    { id: 115, name: "AD Chocolate Tiramisu", unit: 'pc', defaultQuantity: 50 },
+			    { id: 116, name: "AD Chocolate Mint", unit: 'pc', defaultQuantity: 50 },
+			    { id: 117, name: "AD Chocolate Rambutan", unit: 'pc', defaultQuantity: 50 },
+			    { id: 118, name: "AD Chocolate Soursup", unit: 'pc', defaultQuantity: 50 },
+			    { id: 127, name: "AD Chocolate Coconut", unit: 'pc', defaultQuantity: 50 },
+			    { id: 128, name: "AD Chocolate Mangosteen", unit: 'pc', defaultQuantity: 50 }
+			],
+
+			            Sotong: [
+			                { id: 85, name: "Cuttlefish Red" },
+			                { id: 86, name: "Cuttlefish Lemon" },
+			                { id: 87, name: "Cuttlefish Honey" },
+			                { id: 88, name: "Cuttlefish Floss Original" },
+			                { id: 89, name: "Cuttlefish Massive" },
+			                { id: 90, name: "Cuttlefish Whole" },
+			                { id: 91, name: "Cuttlefish Roasted" },
+			                { id: 92, name: "Cuttlefish Chili" },
+			                { id: 93, name: "Five Star Cuttlefish" },
+			                { id: 49, name: "BH Sotong Cuttlefish" },
+			                { id: 50, name: "BH Gula Cuttlefish" },
+			                { id: 51, name: "BH Satay Fish" },
+			            ],
+			            Coffee: [
+			                { id: 22, name: "BH W/Coffee(Mini)" },
+			                { id: 23, name: "BH W/Coffee(Mini)No Sugar" },
+			                { id: 25, name: "BH Durian W/Coffee(Mini)" },
+			                { id: 24, name: "BH Teh Tarik(Mini)" },
+			                { id: 55, name: "BH W/Coffee" },
+			                { id: 119, name: "BH W/Coffee No Sugar" },
+			                { id: 56, name: "BH Kopi O 2in1" },
+			                { id: 57, name: "BH Kopi O No Sugar" },
+			                { id: 58, name: "BH Teh Tarik" },
+			                { id: 59, name: "BH Durian White Coffee" },
+			                { id: 99, name: "Kopi Tenom Silver" },
+			                { id: 100, name: "Kopi Tenom Gold" },
+			                { id: 101, name: "Kopi Tenom Blue" },
+			                { id: 102, name: "Kopi Tenom Green" },
+			                { id: 125, name: "Kopi Tenom Red " }
+			            ],
+			            Amplang: [
+			                { id: 96, name: "Amplang Ikan" },
+			                { id: 97, name: "Amplang Udang" },
+			                { id: 98, name: "Amplang Sotong" }
+			            ],
+			            Other: [
+			                { id: 106, name: "Fruity Gummy Assorted" },
+			                { id: 124, name: "Fruity Gummy Mango" },
+			                { id: 69, name: "Durian Kuih" },
+			                { id: 120, name: "Anchovy Blue" },
+			                { id: 121, name: "Anchovy Green" },
+			                { id: 122, name: "Anchovy Red" },
+			                { id: 123, name: "Anchovy Yellow" },
+
+			            ]
+			        };
+
+			        let selectedItems = {};
+
+			        function loadProducts(products) {
+			    const productList = document.getElementById('productList');
+			    productList.innerHTML = ''; // 清空之前的商品列表
+
+			    products.forEach(product => {
+			        // 确定商品的默认数量，如果存在 defaultQuantity 则使用它，否则默认为 1
+			        const defaultQuantity = product.defaultQuantity || 1;
+
+			        const div = document.createElement('div');
+			        div.innerHTML = `
+			            <input type="checkbox" id="item${product.id}" onchange="saveItem(${product.id}, '${product.name}')">
+			            <label for="item${product.id}">${product.name}</label>
+			            <button class="quantity-btn" onclick="changeQuantity(${product.id}, 1)">+</button>
+			            <input type="number" id="quantity${product.id}" min="1" value="${defaultQuantity}" onchange="saveQuantity(${product.id})">
+			            <button class="quantity-btn" onclick="changeQuantity(${product.id}, -1)">-</button>
+			        `;
+			        productList.appendChild(div);
+
+			        // 如果商品已经被选中，应用先前保存的数量
+			        if (selectedItems[product.id]) {
+			            document.getElementById('item' + product.id).checked = true;
+			            document.getElementById('quantity' + product.id).value = selectedItems[product.id];
+			        }
+			    });
+			}
+
+
+
+			        function saveItem(id, name) {
+			            const checkbox = document.getElementById('item' + id);
+			            const quantity = document.getElementById('quantity' + id).value || 1;
+
+			            if (checkbox.checked) {
+			                selectedItems[id] = quantity;
+			            } else {
+			                delete selectedItems[id]; // 如果取消勾选，就删除该商品
+			            }
+			        }
+
+			        function saveQuantity(id) {
+			            const quantity = document.getElementById('quantity' + id).value || 1;
+			            if (selectedItems[id]) {
+			                selectedItems[id] = quantity; // 更新数量
+			            }
+			        }
+
+			        function changeQuantity(id, change) {
+			            const quantityInput = document.getElementById('quantity' + id);
+			            let currentQuantity = parseInt(quantityInput.value) || 1; // 默认值为1
+
+			            // 更新数量并确保不小于1
+			            currentQuantity = Math.max(1, currentQuantity + change);
+			            quantityInput.value = currentQuantity;
+
+			            saveQuantity(id); // 保存更新的数量
+			        }
+			                function toggleItems() {
+			            let selectedStore = document.querySelector('input[name="store"]:checked');
+			            let checkboxes = document.querySelectorAll('#productList input[type="checkbox"]');
+			            let quantities = document.querySelectorAll('#productList input[type="number"]');
+
+			            if (selectedStore) {
+			                checkboxes.forEach(checkbox => checkbox.disabled = false);
+			                quantities.forEach(quantity => quantity.disabled = false);
+			            } else {
+			                checkboxes.forEach(checkbox => checkbox.disabled = true);
+			                quantities.forEach(quantity => quantity.disabled = true);
+			            }
+			        }
+
+			        function showCategory() {
+			            let selectedCategory = document.querySelector('input[name="category"]:checked');
+
+			            if (selectedCategory) {
+			                let categoryValue = selectedCategory.value;
+			                let productsToShow = categories[categoryValue];
+
+			                if (productsToShow) {
+			                    loadProducts(productsToShow); // 根据选择的目录加载商品
+			                } else {
+			                    console.error("没有找到该分类的商品");
+			                }
+			            } else {
+			                console.error("没有选中任何分类");
+			            }
+
+			            toggleItems(); // 确保激活商品选择框
+			        }
+
+			function generateText() {
+			    let result = '';
+			    let selectedStore = document.querySelector('input[name="store"]:checked');
+			    if (selectedStore) {
+			        result += 'Kedai: ' + selectedStore.value + '\n\n';
+			    } else {
+			        result += 'Kedai: 未选择\n';
+			    }
+
+			    // 遍历所有已选择的产品
+			    for (const [id, quantity] of Object.entries(selectedItems)) {
+			        const product = Object.values(categories).flat().find(p => p.id == id);
+			        if (product) {
+			            const unit = product.unit === 'pc' ? 'pc' : 'ctn';
+			            result += product.name + ' - ' + quantity + ' ' + unit + '\n';
+			        }
+			    }
+
+			    result += '\nAirport Stock Order: smartprofits.github.io/order/';
+			    document.getElementById('result').innerText = result;
+
+			    // 清空商品列表
+			    document.getElementById('productList').innerHTML = '';
+
+			    return result;
+			}
+
+
+
+			        function copyAndSendWhatsApp() {
+			            let text = generateText();
+			            navigator.clipboard.writeText(text).then(() => {
+			                alert('文字已复制，现在跳转到WhatsApp');
+			                let whatsappURL = `https://wa.me/?text=${encodeURIComponent(text)}`;
+			                window.location.href = whatsappURL;
+			            }).catch(err => {
+			                console.error('无法复制', err);
+			            });
+			        }
+
+			        // 检查是否已经选择了模式，并设置默认模式
+			        window.onload = function() {
+			            const savedMode = localStorage.getItem('dark-mode');
+			            if (savedMode === 'enabled') {
+			                document.body.classList.add('dark-mode');
+			                document.querySelector('.toggle-mode-btn').textContent = '切换至正常模式';
+			            }
+			            toggleItems(); // 初始化商品选择框
+			        }
+
+			        function toggleDarkMode() {
+			            const isDarkModeEnabled = document.body.classList.toggle('dark-mode');
+			            const toggleButton = document.querySelector('.toggle-mode-btn');
+
+			            if (isDarkModeEnabled) {
+			                toggleButton.textContent = 'Light Mode🌞';
+			                localStorage.setItem('dark-mode', 'enabled');
+			            } else {
+			                toggleButton.textContent = 'Dark Mode🌙';
+			                localStorage.setItem('dark-mode', 'disabled');
+			            }
+			        }
+			function searchProduct() {
+			    const searchText = document.getElementById('productSearch').value.toLowerCase();
+			    const suggestionsContainer = document.getElementById('suggestions');
+			    suggestionsContainer.innerHTML = ''; // 清空之前的建议
+
+			    if (searchText.length === 0) return; // 如果没有输入，不显示建议
+
+			    // 获取所有分类中的商品
+			    const allProducts = Object.values(categories).flat();
+
+			    // 根据输入的内容筛选出匹配的商品
+			    const matchingProducts = allProducts.filter(product => product.name.toLowerCase().includes(searchText));
+
+			    // 显示匹配的商品作为建议
+			    matchingProducts.forEach(product => {
+			        const div = document.createElement('div');
+			        div.textContent = product.name;
+			        div.onclick = () => selectProduct(product); // 点击建议后选择该商品
+			        suggestionsContainer.appendChild(div);
+			    });
+			}
+
+			function selectProduct(product) {
+			    const productSearch = document.getElementById('productSearch');
+
+			    // 清空搜索框内容
+			    productSearch.value = '';
+
+			    // 清空之前的商品列表（用户第二次选择时删除之前的内容）
+			    const productList = document.getElementById('productList');
+			    productList.innerHTML = ''; // 清空之前选择的商品
+
+			    // 创建新的商品选择框，包含数量调整按钮
+			    const div = document.createElement('div');
+			    div.innerHTML = `
+			        <input type="checkbox" id="item${product.id}" checked onchange="saveItem(${product.id}, '${product.name}')">
+			        <label for="item${product.id}">${product.name}</label>
+			        <button class="quantity-btn" onclick="changeQuantity(${product.id}, 1)">+</button>
+			        <input type="number" id="quantity${product.id}" min="1" value="1" onchange="saveQuantity(${product.id})">
+			        <button class="quantity-btn" onclick="changeQuantity(${product.id}, -1)">-</button>
+			    `;
+			    productList.appendChild(div);
+
+			    // 保存新选择的商品
+			    saveItem(product.id, product.name);
+
+			    // 清空建议
+			    document.getElementById('suggestions').innerHTML = '';
+			}
+
+
+
+
+			// 在页面加载时设置默认语言
+			window.onload = function () {
+			    setLanguage(langCode);
+			    const savedMode = localStorage.getItem('dark-mode');
+			    if (savedMode === 'enabled') {
+			        document.body.classList.add('dark-mode');
+			        document.querySelector('.toggle-mode-btn').textContent = langCode === 'zh' ? '切换至正常模式' : 'Switch to Light Mode';
+			    }
+			    toggleItems();
+			}
+
+
+
+			        // 其他代码省略...
+		</script>
+
+		<p class="contact-info">If you have any questions or need to add new products, please contact me (Mark).</p>
+	</body>
+</html>
