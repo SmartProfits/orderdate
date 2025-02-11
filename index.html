@@ -839,13 +839,6 @@
         <li><a href="#" id="nav-transaction-records"><i class="fas fa-exchange-alt"></i> Transaction Records</a></li>
         <!-- Online Record for sadmin -->
         <li><a href="#" id="nav-online-records"><i class="fas fa-user-clock"></i> Online Record</a></li>
-        <!-- User Actions -->
-        <li id="nav-user-actions" style="display: none;">
-          <a href="#" class="nav-link">
-            <i class="fas fa-user-clock"></i>
-            User Actions
-          </a>
-        </li>
       </ul>
     </nav>
     
@@ -1135,25 +1128,6 @@
               <!-- Records will be dynamically populated -->
             </tbody>
           </table>
-        </div>
-      </section>
-      <!-- User Actions Section -->
-      <section id="user-actions-section" style="display: none;">
-        <h3>User Actions</h3>
-        <div class="filter-container">
-          <select id="user-actions-filter">
-            <option value="all">All Actions</option>
-            <option value="page_view">Page Views</option>
-            <option value="edit_click">Edit Actions</option>
-            <option value="delete_click">Delete Actions</option>
-            <option value="stock_out_click">Stock Out Actions</option>
-            <option value="search">Search Actions</option>
-            <option value="inventory_operation">Inventory Operations</option>
-          </select>
-          <input type="date" id="user-actions-date" />
-        </div>
-        <div id="user-actions-container" class="table-responsive">
-          <!-- User actions will be dynamically populated -->
         </div>
       </section>
     </main>
@@ -1502,11 +1476,16 @@
             lastActive: new Date().toISOString()
           });
 
-          if (rememberMe) {
-            localStorage.setItem('rememberedEmail', email);
-          } else {
-            localStorage.removeItem('rememberedEmail');
-          }
+          // 设置会话持久性为 SESSION，这样浏览器关闭后就会清除登录状态
+          auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+            .then(() => {
+              if (rememberMe) {
+                // 只记住邮箱，不记住登录状态
+                localStorage.setItem('rememberedEmail', email);
+              } else {
+                localStorage.removeItem('rememberedEmail');
+              }
+            });
         })
         .catch((error) => {
           document.getElementById('login-error').textContent = error.message;
@@ -1564,10 +1543,6 @@
           
           adjustUIBasedOnRole();
           loadInventoryForRole(); // Load inventory based on role
-          
-          // Show/hide user actions nav based on role
-          document.getElementById('nav-user-actions').style.display = 
-            userRole === 'sadmin' ? 'block' : 'none';
         })
         .then(() => {
           // Update welcome message
@@ -2196,7 +2171,7 @@
             previewContainer.innerHTML = `
                 <div style="position: relative;">
                     <img src="${imageUrl}" alt="Product image" style="max-width: 100%; height: auto;">
-                    <button class="delete-image-button" onclick="deleteProductImage()">
+                    <button class="delete-image-button" onclick="deleteProductImage('${imageUrl}')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -2274,30 +2249,53 @@
         const inventoryPath = `inventory/${location}`;
         const itemRef = db.ref(`${inventoryPath}/${currentEditItemId}`);
 
-        // Update the item
-        itemRef.update({
-            name,
-            category,
-            quantity: Number(quantity),
-            unit,
-            expiredDate: expiredDate || null,
-            location,
-            modifiedTime: new Date().toISOString(),
-            modifiedBy: user.displayName || 'Unknown',
-            imageUrl: imageUrl || null
-        })
-        .then(() => {
-            // Close modal and refresh inventory
-            document.getElementById('edit-modal').style.display = 'none';
-            loadInventoryForRole();
-        })
-        .catch((error) => {
-            console.error('Edit Error:', error);
-            document.getElementById('edit-item-error').textContent = 'Failed to save changes: ' + error.message;
-        })
-        .finally(() => {
-            hideLoading();
-        });
+        // 获取当前项目的数据
+        itemRef.once('value')
+            .then((snapshot) => {
+                const currentData = snapshot.val();
+                
+                // 准备更新数据
+                const updateData = {
+                    name,
+                    category,
+                    quantity: Number(quantity),
+                    unit,
+                    expiredDate: expiredDate || null,
+                    location
+                };
+
+                // 只有在其他字段（非图片）发生变化时才更新修改时间和修改人
+                if (name !== currentData.name ||
+                    category !== currentData.category ||
+                    Number(quantity) !== currentData.quantity ||
+                    unit !== currentData.unit ||
+                    expiredDate !== currentData.expiredDate ||
+                    location !== currentData.location) {
+                    
+                    updateData.modifiedTime = new Date().toISOString();
+                    updateData.modifiedBy = user.displayName || 'Unknown';
+                }
+
+                // 保持现有的图片URL
+                if (imageUrl) {
+                    updateData.imageUrl = imageUrl;
+                }
+
+                // 更新数据
+                return itemRef.update(updateData);
+            })
+            .then(() => {
+                // Close modal and refresh inventory
+                document.getElementById('edit-modal').style.display = 'none';
+                loadInventoryForRole();
+            })
+            .catch((error) => {
+                console.error('Edit Error:', error);
+                document.getElementById('edit-item-error').textContent = 'Failed to save changes: ' + error.message;
+            })
+            .finally(() => {
+                hideLoading();
+            });
     });
 
     // Add date input validation
@@ -2488,10 +2486,6 @@
           document.getElementById('online-records-section').style.display = 'block';
           loadOnlineRecords(); // Load online records
           break;
-        case 'user-actions':
-          document.getElementById('user-actions-section').style.display = 'block';
-          loadUserActionRecords();
-          break;
         default:
           document.getElementById('inventory-list-section').style.display = 'block';
       }
@@ -2557,17 +2551,13 @@
       // Filter Table Rows
       const rows = inventoryTableBody.querySelectorAll('tr');
       rows.forEach(row => {
-        const productName = row.querySelector('td').textContent.toLowerCase();
-        const itemCategory = row.querySelector('td:nth-child(2)').textContent;
+        const productName = row.cells[0].textContent.toLowerCase(); // 第一列是产品名称
+        const itemCategory = row.cells[2].textContent; // 第三列是分类（因为第二列是图片）
         
         const matchesSearch = productName.includes(query);
         const matchesCategory = category === 'all' || itemCategory === category;
         
-        if (matchesSearch && matchesCategory) {
-          row.style.display = '';
-        } else {
-          row.style.display = 'none';
-        }
+        row.style.display = matchesSearch && matchesCategory ? '' : 'none';
       });
 
       // Filter Inventory Cards
@@ -2579,11 +2569,7 @@
         const matchesSearch = productName.includes(query);
         const matchesCategory = category === 'all' || itemCategory === category;
         
-        if (matchesSearch && matchesCategory) {
-          card.style.display = '';
-        } else {
-          card.style.display = 'none';
-        }
+        card.style.display = matchesSearch && matchesCategory ? '' : 'none';
       });
     }
 
@@ -4051,12 +4037,23 @@
                 const previewContainer = document.getElementById('image-preview-container');
                 previewContainer.innerHTML = `
                     <img src="${imageUrl}" alt="Product image">
-                    <button class="delete-image-button" onclick="deleteProductImage()">
+                    <button class="delete-image-button" onclick="deleteProductImage('${imageUrl}')">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
                 previewContainer.setAttribute('data-image-url', imageUrl);
                 errorElement.textContent = '';
+
+                // 直接更新数据库中的图片URL，不包含修改记录
+                if (currentEditItemId) {
+                    const location = document.getElementById('edit-item-location').value;
+                    const inventoryPath = `inventory/${location}`;
+                    const itemRef = db.ref(`${inventoryPath}/${currentEditItemId}`);
+                    
+                    await itemRef.update({
+                        imageUrl: imageUrl
+                    });
+                }
             } else {
                 errorElement.textContent = 'Failed to upload image';
             }
@@ -4069,13 +4066,8 @@
     });
 
     // 删除产品图片
-    function deleteProductImage() {
+    function deleteProductImage(imageUrl) {
         if (confirm('Are you sure you want to delete this product image?')) {
-            const previewContainer = document.getElementById('image-preview-container');
-            previewContainer.innerHTML = '';
-            previewContainer.removeAttribute('data-image-url');
-            
-            // 立即更新数据库中的图片URL
             const user = auth.currentUser;
             if (user && currentEditItemId) {
                 const location = document.getElementById('edit-item-location').value;
@@ -4084,11 +4076,14 @@
                 
                 showLoading();
                 itemRef.update({
-                    imageUrl: null,
-                    modifiedTime: new Date().toISOString(),
-                    modifiedBy: user.displayName || 'Unknown'
+                    imageUrl: null
                 })
                 .then(() => {
+                    // 清除预览
+                    const previewContainer = document.getElementById('image-preview-container');
+                    previewContainer.innerHTML = '';
+                    previewContainer.removeAttribute('data-image-url');
+                    
                     // 刷新库存显示
                     loadInventoryForRole();
                 })
@@ -4137,30 +4132,53 @@
         const inventoryPath = `inventory/${location}`;
         const itemRef = db.ref(`${inventoryPath}/${currentEditItemId}`);
 
-        // Update the item
-        itemRef.update({
-            name,
-            category,
-            quantity: Number(quantity),
-            unit,
-            expiredDate: expiredDate || null,
-            location,
-            modifiedTime: new Date().toISOString(),
-            modifiedBy: user.displayName || 'Unknown',
-            imageUrl: imageUrl || null
-        })
-        .then(() => {
-            // Close modal and refresh inventory
-            document.getElementById('edit-modal').style.display = 'none';
-            loadInventoryForRole();
-        })
-        .catch((error) => {
-            console.error('Edit Error:', error);
-            document.getElementById('edit-item-error').textContent = 'Failed to save changes: ' + error.message;
-        })
-        .finally(() => {
-            hideLoading();
-        });
+        // 获取当前项目的数据
+        itemRef.once('value')
+            .then((snapshot) => {
+                const currentData = snapshot.val();
+                
+                // 准备更新数据
+                const updateData = {
+                    name,
+                    category,
+                    quantity: Number(quantity),
+                    unit,
+                    expiredDate: expiredDate || null,
+                    location
+                };
+
+                // 只有在其他字段（非图片）发生变化时才更新修改时间和修改人
+                if (name !== currentData.name ||
+                    category !== currentData.category ||
+                    Number(quantity) !== currentData.quantity ||
+                    unit !== currentData.unit ||
+                    expiredDate !== currentData.expiredDate ||
+                    location !== currentData.location) {
+                    
+                    updateData.modifiedTime = new Date().toISOString();
+                    updateData.modifiedBy = user.displayName || 'Unknown';
+                }
+
+                // 保持现有的图片URL
+                if (imageUrl) {
+                    updateData.imageUrl = imageUrl;
+                }
+
+                // 更新数据
+                return itemRef.update(updateData);
+            })
+            .then(() => {
+                // Close modal and refresh inventory
+                document.getElementById('edit-modal').style.display = 'none';
+                loadInventoryForRole();
+            })
+            .catch((error) => {
+                console.error('Edit Error:', error);
+                document.getElementById('edit-item-error').textContent = 'Failed to save changes: ' + error.message;
+            })
+            .finally(() => {
+                hideLoading();
+            });
     });
 
     // 修改打开编辑模态框的函数
@@ -4180,7 +4198,7 @@
             previewContainer.innerHTML = `
                 <div style="position: relative;">
                     <img src="${imageUrl}" alt="Product image" style="max-width: 100%; height: auto;">
-                    <button class="delete-image-button" onclick="deleteProductImage()">
+                    <button class="delete-image-button" onclick="deleteProductImage('${imageUrl}')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -4271,93 +4289,23 @@
         });
     });
 
-    // 添加导航事件监听器
-    document.getElementById('nav-user-actions').addEventListener('click', (e) => {
-      e.preventDefault();
-      showSection('user-actions');
-    });
-
-    // 添加筛选事件监听器
-    document.getElementById('user-actions-filter').addEventListener('change', loadUserActionRecords);
-    document.getElementById('user-actions-date').addEventListener('change', loadUserActionRecords);
-
-    // 加载用户行为记录
-    function loadUserActionRecords() {
-      if (userRole !== 'sadmin') return;
-      
-      const filter = document.getElementById('user-actions-filter').value;
-      const dateFilter = document.getElementById('user-actions-date').value;
-      
-      showLoading();
-      
-      let query = db.ref('userActions').orderByChild('timestamp');
-      
-      if (dateFilter) {
-        const startDate = new Date(dateFilter);
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(dateFilter);
-        endDate.setHours(23, 59, 59, 999);
+    // 确保搜索和分类过滤器的事件监听器正确设置
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search-input');
+        const categoryFilter = document.getElementById('inventory-category-filter');
         
-        query = query.startAt(startDate.toISOString()).endAt(endDate.toISOString());
-      }
-      
-      query.once('value')
-        .then((snapshot) => {
-          const data = snapshot.val();
-          if (!data) {
-            document.getElementById('user-actions-container').innerHTML = 
-              '<p>No user actions found for the selected criteria.</p>';
-            return;
-          }
-          
-          let records = Object.entries(data)
-            .map(([key, record]) => ({...record, id: key}))
-            .filter(record => filter === 'all' || record.action === filter)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-          
-          displayUserActions(records);
-        })
-        .catch((error) => {
-          console.error('Failed to load user actions:', error);
-          document.getElementById('user-actions-container').innerHTML = 
-            '<p>Error loading user actions: ' + error.message + '</p>';
-        })
-        .finally(() => {
-          hideLoading();
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase();
+            const category = categoryFilter.value;
+            filterInventory(query, category);
         });
-    }
-
-    // 显示用户行为记录
-    function displayUserActions(records) {
-      const container = document.getElementById('user-actions-container');
-      
-      const table = `
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>User</th>
-              <th>Page</th>
-              <th>Action</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${records.map(record => `
-              <tr>
-                <td>${formatDateTime(record.timestamp)}</td>
-                <td>${record.userName}</td>
-                <td>${record.page}</td>
-                <td>${record.action}</td>
-                <td>${JSON.stringify(record.details, null, 2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-      
-      container.innerHTML = table;
-    }
+        
+        categoryFilter.addEventListener('change', () => {
+            const query = searchInput.value.toLowerCase();
+            const category = categoryFilter.value;
+            filterInventory(query, category);
+        });
+    });
   </script>
 </body>
 </html>
