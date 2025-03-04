@@ -2,9 +2,303 @@
 <html lang="zh">
 <head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Airport Stock Request</title>
+    
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    
+    <!-- PWA相关标记 -->
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icons/s2.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
+    <!-- 替换玻璃效果和动画的CSS样式 -->
+    <style>
+        /* 去除滚动条但保留滚动功能 */
+        html, body {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+            overflow-y: auto;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* WebKit浏览器（Chrome、Safari等） */
+        ::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            background: transparent;
+        }
+        
+        /* 确保内容不会溢出视口 */
+        body {
+            position: relative;
+            max-height: 100vh;
+            overflow-x: hidden;
+            padding-bottom: 70px; /* 为底部导航栏留出空间 */
+            box-sizing: border-box;
+        }
+        
+        /* 底部导航栏动画效果 */
+        .nav-item {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nav-item::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 30%;
+            width: 40%;
+            height: 3px;
+            background-color: #4285F4;
+            transform: scaleX(0);
+            /* 移除过渡效果 */
+        }
+        
+        .nav-item:hover {
+            color: rgba(255, 255, 255, 1);
+        }
+        
+        .nav-item.active {
+            color: #4285F4;
+        }
+        
+        .nav-item.active::after {
+            transform: scaleX(1);
+        }
+        
+        .nav-item:active {
+            /* 移除缩放效果 */
+        }
+        
+        /* 底部导航栏样式 - 扁平设计 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: #1a2035; /* 纯色背景 */
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 1000;
+            border-top: 1px solid #3a4255;
+        }
+
+        body:not(.dark-mode) .bottom-nav {
+            background: #f5f5f5; /* 纯色背景 */
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.7);
+            width: 33.33%;
+            height: 100%;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        body:not(.dark-mode) .bottom-nav-item {
+            color: rgba(0, 0, 0, 0.7);
+        }
+
+        .bottom-nav-item.active {
+            color: #4285F4;
+        }
+
+        .bottom-nav-item span.label {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .bottom-nav-item:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body:not(.dark-mode) .bottom-nav-item:active {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* 所有滚动容器也应用无滚动条样式 */
+        #preview-window, #settings-panel, #user-menu, .modal-content, 
+        #admin-panel, #productList, #suggestions {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        #preview-window::-webkit-scrollbar, 
+        #settings-panel::-webkit-scrollbar, 
+        #user-menu::-webkit-scrollbar,
+        .modal-content::-webkit-scrollbar,
+        #admin-panel::-webkit-scrollbar,
+        #productList::-webkit-scrollbar,
+        #suggestions::-webkit-scrollbar {
+            display: none;
+            width: 0;
+        }
+    </style>
+    
+    <script>
+        // 保存安装提示事件
+        let deferredPrompt;
+
+        // 监听beforeinstallprompt事件
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // 不再阻止默认的Chrome安装提示
+            // e.preventDefault(); -- 移除这行以允许Chrome显示原生提示
+            
+            // 仍然保存事件引用，以便可以通过某些用户交互触发
+            deferredPrompt = e;
+            console.log('Chrome原生PWA安装提示已触发');
+        });
+        
+        // 当PWA成功安装后
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('PWA已成功安装');
+        });
+        
+        // 左侧仪表板（Dashboard）显示/隐藏功能
+        function toggleDashboard() {
+            const dashboard = document.getElementById('side-dashboard');
+            const overlay = document.getElementById('dashboard-overlay');
+            
+            if (dashboard.style.display === 'flex') {
+                // 关闭仪表板
+                dashboard.style.display = 'none';
+                overlay.style.display = 'none';
+                resetNavHighlights();
+            } else {
+                // 打开仪表板
+                dashboard.style.display = 'flex';
+                overlay.style.display = 'block';
+                
+                // 更新仪表板中的用户信息
+                updateDashboardUserInfo();
+                
+                // 高亮当前按钮
+                highlightNavItem('menu');
+            }
+        }
+        
+        // 更新仪表板中的用户信息
+        function updateDashboardUserInfo() {
+            const userName = document.querySelector('#userName .username-text').textContent;
+            const userRole = document.getElementById('userRole').textContent;
+            
+            document.getElementById('dashboardUserName').textContent = userName;
+            document.getElementById('dashboardUserRole').textContent = userRole;
+            
+            // 检查是否应该显示管理按钮
+            const role = userRole.trim();
+            const adminButton = document.getElementById('dashboardAdminButton');
+            if (role === 'Admin' || role === 'SAdmin') {
+                adminButton.style.display = 'flex';
+            } else {
+                adminButton.style.display = 'none';
+            }
+        }
+        
+        // 高亮显示当前选中的导航项
+        function highlightNavItem(iconName) {
+            // 重置所有高亮
+            resetNavHighlights();
+            
+            // 根据图标名称找到对应的导航项ID
+            const navItemMap = {
+                'person': 'userNavItem',
+                'menu': 'menuNavItem',
+                'receipt_long': 'previewNavItem',
+                'settings': 'settingsNavItem'
+            };
+            
+            const itemId = navItemMap[iconName];
+            if (itemId) {
+                const navItem = document.getElementById(itemId);
+                if (navItem) {
+                    navItem.classList.add('active');
+                }
+            }
+        }
+        
+        // 重置所有导航高亮
+        function resetNavHighlights() {
+            document.querySelectorAll('.bottom-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+        }
+        
+        // 监听beforeinstallprompt事件
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // 不再阻止默认的Chrome安装提示
+            // e.preventDefault(); -- 移除这行以允许Chrome显示原生提示
+            
+            // 仍然保存事件引用，以便可以通过某些用户交互触发
+            deferredPrompt = e;
+            console.log('Chrome原生PWA安装提示已触发');
+            
+            // 不再自动调用自定义安装提示
+            // 注释掉之前的自动提示代码
+            /*
+            const shouldShowPrompt = () => {
+                // 检查是否已经安装为PWA
+                if (window.matchMedia('(display-mode: standalone)').matches || 
+                    window.navigator.standalone === true) {
+                    return false;
+                }
+                
+                // 检查用户是否之前选择了"稍后安装"
+                const laterTimestamp = localStorage.getItem('pwaInstallLater');
+                if (laterTimestamp) {
+                    const hoursSinceLater = (Date.now() - parseInt(laterTimestamp)) / (1000 * 60 * 60);
+                    // 如果24小时内选择了"稍后"，则不显示
+                    if (hoursSinceLater < 24) {
+                        return false;
+                    }
+                }
+                
+                // 检查是否已经显示过安装提示
+                const promptShown = localStorage.getItem('pwaInstallPromptShown');
+                if (promptShown) {
+                    const daysSinceShown = (Date.now() - parseInt(promptShown)) / (1000 * 60 * 60 * 24);
+                    // 如果7天内已经显示过，则不再显示
+                    if (daysSinceShown < 7) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            };
+            
+            // 页面加载后立即显示安装提示
+            if (deferredPrompt && shouldShowPrompt()) {
+                setTimeout(() => {
+                    showPWAInstallPrompt();
+                }, 1000); // 延迟1秒显示，给页面完全加载的时间
+            }
+            */
+        });
+        
+        // 当PWA成功安装后
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('PWA已成功安装');
+        });
+    </script>
+    
     <style>
         #productList label span {
             color: #00CED1 !important;  /* 默认显示青色 */
@@ -89,14 +383,14 @@
             }
         }
 
-        /* 添加全局背景渐变 */
+        /* 添加全局背景 */
         body {
             font-family: Arial, sans-serif;
             padding: 15px;
             margin: 0;
-            background: linear-gradient(135deg, #6e8efb, #ff8e8e);
+            background: #3a4b6b; /* 纯色背景替代渐变 */
             color: #333;
-            transition: background-color 0.3s, color 0.3s;
+            transition: none; /* 移除过渡动画 */
             min-height: 100vh;
         }
 
@@ -108,18 +402,16 @@
 
         /* 修改黑暗模式背景 */
         body.dark-mode {
-            background: linear-gradient(135deg, #1a1f35, #2d1b1b);
+            background: #1a1f35; /* 纯色背景替代渐变 */
             color: #e0e0e0;
         }
 
         /* 添加玻璃态效果的通用类 */
         .glass-effect {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            border-radius: 10px;
+            background: #2a3142; /* 深色纯色背景 */
+            border: 1px solid #3a4255;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
         }
 
         /* Light Mode 下的玻璃态效果和文字颜色 */
@@ -132,9 +424,9 @@
         body:not(.dark-mode) .contact-info,
         body:not(.dark-mode) .shop-card,
         body:not(.dark-mode) .category-card {
-            background: rgba(255, 255, 255, 0.95);  /* 近乎纯白的背景 */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);  /* 柔和的阴影 */
-            border: 1px solid rgba(0, 0, 0, 0.1);  /* 淡灰色边框 */
+            background: #ffffff;  /* 纯白色背景 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);  /* 简化阴影 */
+            border: 1px solid #e0e0e0;  /* 淡灰色边框 */
             color: #333333;
         }
 
@@ -389,39 +681,28 @@
             font-size: 4rem;
             font-weight: bold;
             text-align: center;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: #2a3142; /* 纯色背景 */
             padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border-radius: 8px;
+            border: 1px solid #3a4255;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             margin: 20px auto;
             max-width: 80%;
             position: relative;
             overflow: hidden;
-            animation: glowingTitle 3s ease-in-out infinite;
         }
 
-        /* 添加标题动画效果 */
+        /* Light Mode 下的标题样式 */
+        body:not(.dark-mode) h1 {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            color: #333333;
+        }
+
+        /* 删除标题动画效果 */
         @keyframes glowingTitle {
-            0% {
-                text-shadow: 0 0 5px rgba(255, 255, 255, 0.8),
-                             0 0 10px rgba(255, 255, 255, 0.8),
-                             0 0 15px rgba(255, 255, 255, 0.8);
-                transform: translateY(0);
-            }
-            50% {
-                text-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
-                             0 0 35px rgba(255, 255, 255, 0.8),
-                             0 0 40px rgba(255, 255, 255, 0.8);
-                transform: translateY(-5px);
-            }
-            100% {
-                text-shadow: 0 0 5px rgba(255, 255, 255, 0.8),
-                             0 0 10px rgba(255, 255, 255, 0.8),
-                             0 0 15px rgba(255, 255, 255, 0.8);
-                transform: translateY(0);
+            0%, 50%, 100% {
+                /* 移除动画效果 */
             }
         }
 
@@ -508,14 +789,13 @@
             overflow: hidden;
         }
 
+        /* 删除卡片动画效果 */
         .shop-card:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.2);
+            background: #323a4e; /* 简单的颜色变化 */
         }
 
         .shop-card.selected {
             border: 2px solid #4CAF50;
-            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
         }
 
         .shop-card input[type="radio"] {
@@ -559,14 +839,13 @@
             overflow: hidden;
         }
 
+        /* 删除卡片动画效果 */
         .category-card:hover {
-            transform: translateY(-3px);
-            background: rgba(255, 255, 255, 0.2);
+            background: #323a4e; /* 简单的颜色变化 */
         }
 
         .category-card.selected {
             border: 2px solid #2196F3;
-            box-shadow: 0 0 15px rgba(33, 150, 243, 0.3);
         }
 
         .category-card input[type="radio"] {
@@ -674,18 +953,15 @@
         /* Light Mode 下卡片的悬停效果 */
         body:not(.dark-mode) .shop-card:hover,
         body:not(.dark-mode) .category-card:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background: #f5f5f5;
         }
 
-        /* Light Mode 下选中卡片的悬停效果 */
         body:not(.dark-mode) .shop-card.selected:hover {
-            background: rgba(76, 175, 80, 0.15);  /* 稍深的淡绿色背景 */
+            background: #f0f9f0;
         }
 
         body:not(.dark-mode) .category-card.selected:hover {
-            background: rgba(33, 150, 243, 0.15);  /* 稍深的淡蓝色背景 */
+            background: #f0f5fd;
         }
 
         /* 设置面板的样式 */
@@ -781,14 +1057,478 @@
             color: #333;
             background: rgba(0, 0, 0, 0.1);
         }
+
+        /* 低性能模式的样式 */
+        .low-perf-mode .glass-effect,
+        .low-perf-mode #productList div,
+        .low-perf-mode button,
+        .low-perf-mode #result,
+        .low-perf-mode #productSearch,
+        .low-perf-mode #suggestions,
+        .low-perf-mode .contact-info,
+        .low-perf-mode .shop-card,
+        .low-perf-mode .category-card,
+        .low-perf-mode #settings-panel,
+        .low-perf-mode #preview-window,
+        .low-perf-mode #preview-icon {
+            /* 替换所有磨砂玻璃效果为简单半透明背景 */
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgba(255, 255, 255, 0.8) !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* 深色模式下的低性能样式 */
+        .low-perf-mode.dark-mode .glass-effect,
+        .low-perf-mode.dark-mode #productList div,
+        .low-perf-mode.dark-mode button,
+        .low-perf-mode.dark-mode #result,
+        .low-perf-mode.dark-mode #productSearch,
+        .low-perf-mode.dark-mode #suggestions,
+        .low-perf-mode.dark-mode .contact-info,
+        .low-perf-mode.dark-mode .shop-card,
+        .low-perf-mode.dark-mode .category-card,
+        .low-perf-mode.dark-mode #settings-panel,
+        .low-perf-mode.dark-mode #preview-window,
+        .low-perf-mode.dark-mode #preview-icon {
+            background: rgba(30, 30, 30, 0.8) !important;
+        }
+
+        /* 禁用所有动画效果 */
+        .low-perf-mode * {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        /* 登录和注册界面样式 */
+        .auth-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1e2029;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .auth-box {
+            background: #2a2d3e;
+            border-radius: 10px;
+            padding: 69px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-box h2 {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #3a3f55;
+            border: 1px solid #4a5173;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+        }
+
+        .auth-form input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .auth-form button {
+            width: 105%;
+            padding: 12px;
+            background: linear-gradient(45deg, #4a90e2, #63b3ed);
+            border: none;
+            border-radius: 21px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .auth-form .switch-form {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .user-info #userName {
+            font-weight: 500;
+            padding: 4px 8px;
+            /* 移除背景和边框 */
+            background: transparent;
+            border-radius: 5px;
+            margin-right: 8px;
+            /* 发光效果集中在文字上 */
+            text-shadow: 0 0 8px rgba(79, 195, 247, 0.7);
+            animation: usernameTextGlow 2s infinite alternate;
+            transition: all 0.3s ease;
+            cursor: pointer; /* 添加指针样式提示可交互 */
+        }
+        
+        /* 添加鼠标悬停效果 */
+        .user-info #userName:hover {
+            transform: translateY(-2px);
+            /* 更强的文字发光效果 */
+            text-shadow: 0 0 15px rgba(79, 195, 247, 0.9), 0 0 20px rgba(0, 195, 255, 0.8);
+        }
+        
+        /* 创建用户名文字发光动画 */
+        @keyframes usernameTextGlow {
+            0% {
+                text-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
+            }
+            100% {
+                text-shadow: 0 0 10px rgba(79, 195, 247, 0.8), 0 0 15px rgba(79, 195, 247, 0.6), 0 0 20px rgba(79, 195, 247, 0.4);
+            }
+        }
+        
+        /* 点击用户名时的效果 */
+        .user-info #userName:active {
+            transform: scale(0.95);
+            text-shadow: 0 0 25px rgba(79, 195, 247, 1);
+        }
+
+        /* Light Mode 下的用户名发光动画 */
+        body:not(.dark-mode) .user-info #userName {
+            /* 移除背景 */
+            background: transparent;
+            color: #333;
+            animation: usernameTextGlowLight 2s infinite alternate;
+        }
+        
+        /* Light Mode下的悬停效果 */
+        body:not(.dark-mode) .user-info #userName:hover {
+            transform: translateY(-2px);
+            /* 更强的文字发光效果 */
+            text-shadow: 0 0 15px rgba(33, 150, 243, 0.8), 0 0 20px rgba(33, 150, 243, 0.6);
+        }
+        
+        /* Light Mode下的文字发光动画 */
+        @keyframes usernameTextGlowLight {
+            0% {
+                text-shadow: 0 0 5px rgba(33, 150, 243, 0.3);
+            }
+            100% {
+                text-shadow: 0 0 10px rgba(33, 150, 243, 0.7), 0 0 15px rgba(33, 150, 243, 0.5), 0 0 20px rgba(33, 150, 243, 0.3);
+            }
+        }
+
+        .user-info .role {
+            font-size: 12px;
+            padding: 3px 8px;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 15px;
+        }
+
+        /* Light Mode 下的用户信息样式 */
+        body:not(.dark-mode) .user-info {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        body:not(.dark-mode) .user-info .role {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+            color: #333;
+        }
+
+        .user-info .logout {
+            margin-left: auto;
+            cursor: pointer;
+            padding: 4px 10px;
+            background: rgba(255, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .user-info .logout:hover {
+            background: rgba(255, 0, 0, 0.3);
+        }
+
+        #adminButton {
+            margin-left: 10px;
+            cursor: pointer;
+            padding: 4px 10px;
+            background: rgba(0, 100, 255, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 100, 255, 0.3);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        #adminButton:hover {
+            background: rgba(0, 100, 255, 0.3);
+        }
+
+        /* Light Mode 下的按钮样式 */
+        body:not(.dark-mode) .user-info .logout {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.2);
+        }
+
+        body:not(.dark-mode) .user-info .logout:hover {
+            background: rgba(255, 0, 0, 0.2);
+        }
+
+        body:not(.dark-mode) #adminButton {
+            background: rgba(0, 100, 255, 0.1);
+            border: 1px solid rgba(0, 100, 255, 0.2);
+        }
+
+        body:not(.dark-mode) #adminButton:hover {
+            background: rgba(0, 100, 255, 0.2);
+        }
+
+        /* 管理员面板样式优化 */
+        #adminPanel .auth-box {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+        }
+
+        #adminPanel .user-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        #adminPanel .user-card .user-info-section {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        #adminPanel .user-card .user-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        #adminPanel .user-card .user-meta {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        #adminPanel .user-card .user-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Light Mode 下的管理员面板样式 */
+        body:not(.dark-mode) #adminPanel .auth-box {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        body:not(.dark-mode) #adminPanel .user-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body:not(.dark-mode) #adminPanel .user-card .user-meta {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        body:not(.dark-mode) #adminPanel .user-card .user-status {
+            background: rgba(0, 0, 0, 0.05);
+            color: #333;
+        }
+
+        .action-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-button.approve:hover {
+            background: rgba(76, 175, 80, 0.3);
+        }
+
+        .action-button.promote:hover {
+            background: rgba(33, 150, 243, 0.3);
+        }
+
+        .action-button.demote:hover {
+            background: rgba(255, 152, 0, 0.3);
+        }
+
+        .action-button.delete:hover {
+            background: rgba(244, 67, 54, 0.3);
+        }
+
+        /* Light Mode hover effects */
+        body:not(.dark-mode) .action-button.approve:hover {
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        body:not(.dark-mode) .action-button.promote:hover {
+            background: rgba(33, 150, 243, 0.2);
+        }
+
+        body:not(.dark-mode) .action-button.demote:hover {
+            background: rgba(255, 152, 0, 0.2);
+        }
+
+        body:not(.dark-mode) .action-button.delete:hover {
+            background: rgba(244, 67, 54, 0.2);
+        }
     </style>
+    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 </head>
 <body>
-    <!-- 在 body 开始处添加浮动预览窗口 -->
+    <!-- 登录和注册界面 -->
+    <div id="authContainer" class="auth-container">
+        <div class="auth-box">
+            <h2 id="authTitle">User Login</h2>
+            
+            <!-- 登录表单 -->
+            <div id="loginForm" class="auth-form">
+                <div style="position: relative;">
+                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">person</span>
+                    <input type="text" id="loginId" placeholder="Enter ID" required style="padding-left: 35px;">
+                </div>
+                <div style="position: relative;">
+                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">lock</span>
+                    <input type="password" id="loginPassword" placeholder="Enter Password" required style="padding-left: 35px;">
+                </div>
+                <button id="loginButton">
+                    <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">login</span>Login
+                </button>
+                <div class="switch-form" onclick="switchToRegister()">
+                    <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">how_to_reg</span>No account? Click to register
+                </div>
+            </div>
+            
+            <!-- 注册表单 -->
+            <div id="registerForm" class="auth-form" style="display: none;">
+                <div style="position: relative;">
+                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">badge</span>
+                    <input type="text" id="registerId" placeholder="Set ID" required style="padding-left: 35px;">
+                </div>
+                <div style="position: relative;">
+                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">lock</span>
+                    <input type="password" id="registerPassword" placeholder="Set Password" required style="padding-left: 35px;">
+                </div>
+                <div style="position: relative;">
+                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">person</span>
+                    <input type="text" id="registerName" placeholder="Enter Name" required style="padding-left: 35px;">
+                </div>
+                <button id="registerButton">
+                    <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">app_registration</span>Register
+                </button>
+                <div class="switch-form" onclick="switchToLogin()">
+                    <span class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 5px;">login</span>Already have an account? Click to login
+                </div>
+            </div>
+            
+            <!-- 等待审核界面 -->
+            <div id="pendingForm" class="auth-form" style="display: none; text-align: center;">
+                <div style="font-size: 60px; margin-bottom: 20px;">⏳</div>
+                <h3 style="margin-bottom: 15px;">Your account is awaiting approval</h3>
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 25px;">Please wait patiently for an administrator to review your account.</p>
+                <button onclick="backToLogin()">Back to Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户信息显示 (隐藏但保留功能) -->
+    <div id="userInfo" class="user-info" style="display: none; visibility: hidden; position: absolute; top: -9999px; left: -9999px;">
+        <span id="userName" style="display: flex; align-items: center; gap: 5px;">
+            <span class="material-icons-outlined">account_circle</span>
+            <span class="username-text">Not logged in</span>
+        </span>
+        <span id="userRole" class="role">Guest</span>
+        <span class="logout" onclick="logout()">
+            <span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle; margin-right: 2px;">logout</span>Logout
+        </span>
+        <!-- 管理员按钮 - 仅对Admin和SAdmin显示 -->
+        <span id="adminButton" style="
+            margin-left: 10px;
+            cursor: pointer;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            display: none;" onclick="openAdminPanel()">
+            <span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle; margin-right: 2px;">admin_panel_settings</span>Manage
+        </span>
+    </div>
+    
+    <!-- 管理员面板 -->
+    <div id="adminPanel" class="auth-container" style="display: none;">
+        <div class="auth-box" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>User Management</h2>
+                <span style="cursor: pointer; font-size: 24px;" onclick="document.getElementById('adminPanel').style.display = 'none'">×</span>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3>Pending Users</h3>
+                <div id="pendingUsersList" style="margin-top: 15px;">
+                    Loading...
+                </div>
+            </div>
+            
+            
+            <div style="margin-bottom: 20px;">
+                <h3>All Users</h3>
+                <div id="allUsersList" style="margin-top: 15px;">
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 原有的页面内容 -->
     <div id="preview-window" style="
         position: fixed;
         top: 20px;
@@ -798,11 +1538,16 @@
         overflow-y: auto;
         z-index: 1000;
         padding: 15px;
-        display: none;"
-        class="glass-effect">
+        display: none;
+        background: #2a3142; /* 纯色背景替代半透明 */
+        border: 1px solid #3a4255;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        color: #ffffff;">
         <div class="preview-header">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span>订单预览</span>
+                <span class="material-icons-round" style="font-size: 20px;">receipt_long</span>
+                <span>Order List</span>
                 <div class="preview-addon-switch">
                     <label>
                         <input type="checkbox" id="addOnCheckbox" onchange="updatePreview()">
@@ -810,20 +1555,24 @@
                     </label>
                 </div>
             </div>
-            <span style="cursor: pointer;" onclick="togglePreview()">×</span>
+            <span class="material-icons-round" style="cursor: pointer; font-size: 22px;" onclick="togglePreview()">close</span>
         </div>
         <div id="preview-content"></div>
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
-            <button class="whatsapp-button" onclick="copyAndSendWhatsApp()" style="width: 100%;">
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #3a4255;">
+            <button class="whatsapp-button" onclick="copyAndSendWhatsApp()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span class="material-icons-round" style="font-size: 18px;">content_copy</span>
                 Copy And Paste to WhatsApp
             </button>
         </div>
     </div>
 
     <!-- 修改预览图标的样式 -->
-    <div id="preview-icon" style="
+
+
+    <!-- 设置图标 -->
+    <div id="settings-icon" style="
         position: fixed;
-        top: 20px;
+        bottom: 20px;
         right: 20px;
         width: 50px;
         height: 50px;
@@ -834,52 +1583,107 @@
         box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
         cursor: pointer;
         z-index: 1000;
-        display: none;
+        display: none; /* 隐藏，因为功能已移至底部导航 */
         align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        line-height: 1;
-        padding: 0;
-        text-align: center;
-        "
-        onclick="togglePreview()">
-        <span style="display: flex; align-items: center; justify-content: center;">📋</span>
+        justify-content: center;"
+        onclick="toggleSettings()">
+        <span class="material-icons-round" style="font-size: 28px; color: rgba(255, 255, 255, 0.8);">settings</span>
     </div>
 
     <!-- 保留设置面板，但调整位置 -->
-    <div id="settings-panel" class="glass-effect" style="
-        position: absolute;
-        top: 180px;
-        right: 20px;
+    <div id="settings-panel" style="
+        position: fixed;
+        bottom: 70px;
+        right: 16px;
         width: 250px;
-        padding: 20px;
-        z-index: 1000;
-        display: none;">
+        padding: 15px;
+        border-radius: 8px;
+        z-index: 1001;
+        display: none;
+        max-height: calc(100% - 100px);
+        overflow-y: auto;
+        background: #2a3142; /* 纯色背景 */
+        border: 1px solid #3a4255;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        color: #ffffff;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0;">Settings</h3>
-            <span style="cursor: pointer;" onclick="toggleSettings()">×</span>
+            <h3 style="margin: 0; display: flex; align-items: center;">
+                <span class="material-icons-round" style="font-size: 20px; margin-right: 8px;">settings</span>Settings
+            </h3>
+            <span class="material-icons-round" style="cursor: pointer; font-size: 22px;" onclick="toggleSettings()">close</span>
         </div>
         
         <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 10px;">Theme</label>
+            <label style="display: block; margin-bottom: 10px; display: flex; align-items: center;">
+                <span class="material-icons-round" style="font-size: 18px; margin-right: 8px;">palette</span>Theme
+            </label>
             <div style="display: flex; gap: 10px;">
                 <button id="dark-mode-btn" 
                         onclick="changeTheme('dark')" 
-                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center;">
-                    Dark Mode 🌙
+                        style="flex: 1; padding: 8px; border-radiuszz: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span class="material-icons-round" style="font-size: 16px;">dark_mode</span>
+                    Dark Mode
                 </button>
                 <button id="light-mode-btn" 
                         onclick="changeTheme('light')" 
-                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center;">
-                    Light Mode 🌞
+                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span class="material-icons-round" style="font-size: 16px;">light_mode</span>
+                    Light Mode
                 </button>
             </div>
         </div>
         
-        <div>
-            <label style="display: block; margin-bottom: 10px;">Font Size</label>
+        <!-- 添加低性能模式选项 -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; display: flex; align-items: center;">
+                <span class="material-icons-round" style="font-size: 18px; margin-right: 8px;">speed</span>Performance
+            </label>
+            <div style="display: flex; gap: 10px;">
+                <button id="high-perf-btn" 
+                        onclick="togglePerformanceMode(false)" 
+                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span class="material-icons-round" style="font-size: 16px;">hd</span>
+                    High
+                </button>
+                <button id="low-perf-btn" 
+                        onclick="togglePerformanceMode(true)" 
+                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span class="material-icons-round" style="font-size: 16px;">rocket</span>
+                    Smooth
+                </button>
+            </div>
+        </div>
+        
+
+        
+
+        <div style="margin-top: 20px;">
+            <label style="display: block; margin-bottom: 10px; display: flex; align-items: center;">
+                <span class="material-icons-round" style="font-size: 18px; margin-right: 8px;">vibration</span>Vibration
+            </label>
+            <div style="display: flex; gap: 10px;">
+                <button id="vibration-on-btn" 
+                        onclick="toggleVibration(true)" 
+                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span class="material-icons-round" style="font-size: 16px;">notifications_active</span>
+                    On
+                </button>
+                <button id="vibration-off-btn" 
+                        onclick="toggleVibration(false)" 
+                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span class="material-icons-round" style="font-size: 16px;">notifications_off</span>
+                    Off
+                </button>
+            </div>
+        </div>
+        <div style="margin-top: 20px;">
+            <label style="display: block; margin-bottom: 10px; display: flex; align-items: center;">
+                <span class="material-icons-round" style="font-size: 18px; margin-right: 8px;">format_size</span>Font Size
+            </label>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 0.8em;">小</span>
+                <span style="display: flex; align-items: center; justify-content: center;">
+                    <span class="material-icons-round" style="font-size: 16px;">text_decrease</span>
+                </span>
                 <input type="range" 
                        id="font-size-selector" 
                        min="0" 
@@ -888,50 +1692,18 @@
                        value="1"
                        style="flex-grow: 1;"
                        onchange="changeFontSize(this.value)">
-                <span style="font-size: 1.2em;">大</span>
+                <span style="display: flex; align-items: center; justify-content: center;">
+                    <span class="material-icons-round" style="font-size: 20px;">text_increase</span>
+                </span>
             </div>
         </div>
-
-        <div style="margin-top: 20px;">
-            <label style="display: block; margin-bottom: 10px;">Vibration</label>
-            <div style="display: flex; gap: 10px;">
-                <button id="vibration-on-btn" 
-                        onclick="toggleVibration(true)" 
-                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center;">
-                    On 📳
-                </button>
-                <button id="vibration-off-btn" 
-                        onclick="toggleVibration(false)" 
-                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center;">
-                    Off 🔕
-                </button>
-            </div>
-        </div>
+        
     </div>
 
-    <h1>Stock Order</h1>
+    <h1>SmartProfits Stock Order</h1>
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
-        <h3 style="margin: 0;">Select Shop</h3>
-        <!-- 这里保留设置按钮 -->
-        <div id="settings-button" style="
-            width: 40px;
-            height: 40px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            line-height: 1;
-            padding: 0;
-            text-align: center;
-            ">
-            <span style="display: flex; align-items: center; justify-content: center;">⚙️</span>
-        </div>
+        <h3 style="margin: 0;">Outlet</h3>
+        <!-- 移除单独的设置按钮，因为我们已经在底部导航有设置按钮 -->
     </div>
 
     <div class="shop-container">
@@ -961,6 +1733,20 @@
             <label for="new">
                 <span class="shop-icon">🏠</span>
                 <span class="shop-name">Ole-Ole Luar</span>
+            </label>
+        </div>
+        <div class="shop-card" onclick="selectShop(this, '*Wrapping(AA)*')">
+            <input type="radio" name="store" value="*Wrapping(AA)*" id="aa">
+            <label for="aa">
+                <span class="shop-icon">🧳</span>
+                <span class="shop-name">Wrapping(AA)</span>
+            </label>
+        </div>
+        <div class="shop-card" onclick="selectShop(this, '*Wrapping(MAS)*')">
+            <input type="radio" name="store" value="*Wrapping(MAS)*" id="mas">
+            <label for="mas">
+                <span class="shop-icon">🧳</span>
+                <span class="shop-name">Wrapping(MAS)</span>
             </label>
         </div>
     </div>
@@ -1016,9 +1802,19 @@
                 <span>Other</span>
             </label>
         </div>
+        <div class="category-card" onclick="selectCategory(this, 'Wrapping')">
+            <input type="radio" name="category" value="Wrapping" id="wrapping">
+            <label for="Wrapping">
+                <span class="category-icon">🧸</span>
+                <span>Wrapping</span>
+            </label>
+        </div>
     </div>
 
-    <input type="text" id="productSearch" placeholder="Search..." oninput="searchProduct()" autocomplete="off" />
+    <div style="position: relative; margin-bottom: 15px; margin-top: 15px;">
+        <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.5); pointer-events: none; z-index: 10;">search</span>
+        <input type="text" id="productSearch" placeholder="Search..." oninput="searchProduct()" autocomplete="off" style="padding-left: 35px; width: calc(100% - 35px); position: relative;" />
+    </div>
     <div id="suggestions"></div>
     <h3>Select items (default quantity is 1）</h3>
     <div id="productList"></div>
@@ -1030,8 +1826,25 @@
         </div>
     </div>
 
+    <div class="setting-menu">
+        <!-- 删除这两个设置项 -->
+    </div>
+
     <script>
-        const firebaseConfig = {
+        // 认证用Firebase配置
+        const authFirebaseConfig = {
+            apiKey: "AIzaSyAs2ZN6dIqV6mxCGyNc87NhYDMHbjtXlHg",
+            authDomain: "order-8649a.firebaseapp.com",
+            databaseURL: "https://order-8649a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "order-8649a",
+            storageBucket: "order-8649a.firebasestorage.app",
+            messagingSenderId: "786186314747",
+            appId: "1:786186314747:web:d50dc099fcfa0aa1ece15e",
+            measurementId: "G-XH6PV5ZQ8H"
+        };
+        
+        // 库存查询用Firebase配置
+        const stockFirebaseConfig = {
             apiKey: "AIzaSyDAK5KVv9oln2qS5EfNzox1snM19wa83-o",
             authDomain: "smart-profits-stock.firebaseapp.com",
             databaseURL: "https://smart-profits-stock-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -1042,18 +1855,329 @@
             measurementId: "G-R0K4Q7JTGE"
         };
 
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        // 添加一个全局变量来存储库存信息
+        // 初始化认证用Firebase
+        const authApp = firebase.initializeApp(authFirebaseConfig);
+        const db = authApp.database();
+        const auth = authApp.auth();
+        
+        // 初始化库存查询用Firebase (使用secondary app)
+        const stockApp = firebase.initializeApp(stockFirebaseConfig, "stock");
+        const stockDb = stockApp.database();
+        
+        // 保留现有的库存变量
         let stockMap = {};
+        let currentUser = null;
+        let userRole = "User"; // 默认为普通用户角色
 
+        // 身份验证状态监听
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // 用户已登录
+                currentUser = user;
+                
+                // 从数据库获取用户信息和角色
+                db.ref(`users/${user.uid}`).once('value').then((snapshot) => {
+                    const userData = snapshot.val();
+                    if (userData) {
+                        // 检查用户状态，如果是pending则显示等待审核界面
+                        if (userData.status === 'pending') {
+                            document.getElementById('loginForm').style.display = 'none';
+                            document.getElementById('registerForm').style.display = 'none';
+                            document.getElementById('pendingForm').style.display = 'block';
+                            document.getElementById('authTitle').textContent = 'Account Pending';
+                            document.getElementById('authContainer').style.display = 'flex';
+                            document.getElementById('userInfo').style.display = 'none';
+                            return;
+                        }
+                        
+                        // 正常状态的用户
+                        document.getElementById('userName').querySelector('.username-text').textContent = userData.name || '用户';
+                        userRole = userData.role || 'User';
+                        document.getElementById('userRole').textContent = userRole;
+                        
+                        // 显示用户信息栏
+                        document.getElementById('userInfo').style.display = 'flex';
+                        
+                        // 隐藏登录界面
+                        document.getElementById('authContainer').style.display = 'none';
+                        
+                        // 根据角色控制功能访问权限
+                        applyRoleBasedPermissions(userRole);
+                        
+                        // 加载库存数据
+                        loadQuantitiesFromFirebase();
+                    } else {
+                        // 新注册用户，还没有数据
+                        db.ref(`users/${user.uid}`).set({
+                            id: 'guest_' + Math.floor(Math.random() * 1000),
+                            name: '访客',
+                            role: 'User',
+                            status: 'active', // 访客用户直接设为激活状态
+                            createdAt: firebase.database.ServerValue.TIMESTAMP
+                        }).then(() => {
+                            document.getElementById('userName').querySelector('.username-text').textContent = '访客';
+                            document.getElementById('userRole').textContent = 'User';
+                            document.getElementById('userInfo').style.display = 'flex';
+                            document.getElementById('authContainer').style.display = 'none';
+                            // 加载库存数据
+                            loadQuantitiesFromFirebase();
+                        });
+                    }
+                });
+            } else {
+                // 用户未登录
+                document.getElementById('authContainer').style.display = 'flex';
+                document.getElementById('userInfo').style.display = 'none';
+                currentUser = null;
+            }
+        });
+
+        // 应用基于角色的权限控制
+        function applyRoleBasedPermissions(role) {
+            // 根据不同角色显示/隐藏功能
+            const adminButton = document.getElementById('adminButton');
+            
+            switch(role) {
+                case 'SAdmin':
+                    // 超级管理员拥有所有权限
+                    adminButton.style.display = 'inline-block';
+                    document.querySelectorAll('.sadmin-only').forEach(el => {
+                        el.style.display = 'block';
+                    });
+                    break;
+                case 'Admin':
+                    // 管理员拥有管理员权限
+                    adminButton.style.display = 'inline-block';
+                    // 隐藏超级管理员权限
+                    document.querySelectorAll('.sadmin-only').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    break;
+                case 'User':
+                default:
+                    // 普通用户权限
+                    adminButton.style.display = 'none';
+                    document.querySelectorAll('.sadmin-only').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    break;
+            }
+        }
+
+        // 切换到注册界面
+        function switchToRegister() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('authTitle').textContent = '用户注册';
+        }
+
+        // 切换到登录界面
+        function switchToLogin() {
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('authTitle').textContent = '用户登录';
+        }
+
+        // 用户注册
+        document.getElementById('registerButton').addEventListener('click', () => {
+            const id = document.getElementById('registerId').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const name = document.getElementById('registerName').value.trim();
+            
+            if (!id || !password || !name) {
+                alert('Please fill in all information');
+                return;
+            }
+            
+            // 先检查ID是否已存在
+            db.ref('users').orderByChild('id').equalTo(id).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        alert('This ID is already registered. Please choose another ID.');
+                        return;
+                    }
+                    
+                    // 使用匿名登录先创建账户
+                    return auth.signInAnonymously()
+                        .then((userCredential) => {
+                            const user = userCredential.user;
+                            
+                            // 存储用户信息到数据库
+                            return db.ref(`users/${user.uid}`).set({
+                                id: id,
+                                name: name,
+                                password: password,
+                                role: 'User', // 默认角色
+                                status: 'pending', // 默认状态为待审核
+                                createdAt: firebase.database.ServerValue.TIMESTAMP
+                            });
+                        })
+                        .then(() => {
+                            alert('Registration successful. Please wait for administrator approval.');
+                            
+                            // 显示等待审核界面
+                            document.getElementById('loginForm').style.display = 'none';
+                            document.getElementById('registerForm').style.display = 'none';
+                            document.getElementById('pendingForm').style.display = 'block';
+                            document.getElementById('authTitle').textContent = 'Account Pending';
+                        })
+                        .catch((error) => {
+                            console.error('Registration error:', error);
+                            alert('Registration failed: ' + error.message);
+                        });
+                })
+                .catch((error) => {
+                    console.error('Error checking existing user:', error);
+                    alert('Registration failed: ' + error.message);
+                });
+        });
+
+        // 用户登录
+        document.getElementById('loginButton').addEventListener('click', () => {
+            const id = document.getElementById('loginId').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!id || !password) {
+                alert('Please enter ID and password');
+                return;
+            }
+            
+            // 在数据库中查找用户
+            db.ref('users').orderByChild('id').equalTo(id).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let userData = null;
+                        let userId = null;
+                        let existingUserKeys = [];
+                        
+                        // 获取用户信息
+                        snapshot.forEach((childSnapshot) => {
+                            // 如果有多个相同ID的用户，只取第一个
+                            if (!userData) {
+                                userId = childSnapshot.key;
+                                userData = childSnapshot.val();
+                            }
+                            existingUserKeys.push(childSnapshot.key);
+                        });
+                        
+                        // 验证密码
+                        if (userData && password === userData.password) {
+                            // 检查用户状态
+                            if (userData.status === 'pending') {
+                                // 显示等待审核界面
+                                document.getElementById('loginForm').style.display = 'none';
+                                document.getElementById('registerForm').style.display = 'none';
+                                document.getElementById('pendingForm').style.display = 'block';
+                                document.getElementById('authTitle').textContent = 'Account Pending';
+                                return;
+                            } else if (userData.status === 'active') {
+                                // 清理重复的用户记录，只保留第一个
+                                if (existingUserKeys.length > 1) {
+                                    console.log('Found duplicate user entries, cleaning up...');
+                                    // 保留第一个，删除其余的
+                                    const promises = [];
+                                    for (let i = 1; i < existingUserKeys.length; i++) {
+                                        promises.push(db.ref(`users/${existingUserKeys[i]}`).remove());
+                                    }
+                                    // 等待清理完成
+                                    return Promise.all(promises).then(() => {
+                                        console.log('Cleanup complete, proceeding with login');
+                                        return proceedWithLogin(userId, userData);
+                                    });
+                                }
+                                
+                                // 如果没有重复项，直接登录
+                                return proceedWithLogin(userId, userData);
+                            } else {
+                                alert('Your account status is abnormal, please contact an administrator');
+                            }
+                        } else {
+                            alert('Incorrect password');
+                        }
+                    } else {
+                        alert('User does not exist');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Login error:', error);
+                    alert('Login failed: ' + error.message);
+                });
+        });
+
+        // 分离登录逻辑到单独的函数
+        function proceedWithLogin(userId, userData) {
+            // 先查找是否已经有登录记录
+            return db.ref('users').orderByChild('id').equalTo(userData.id).once('value')
+                .then((existingSnapshot) => {
+                    // 使用匿名登录
+                    return auth.signInAnonymously()
+                        .then((userCredential) => {
+                            // 更新用户状态
+                            currentUser = userCredential.user;
+                            userRole = userData.role || 'User';
+                            const newUserId = userCredential.user.uid;
+                            
+                            // 如果新的anonymousId和之前的数据库ID不同，就删除旧记录
+                            if (userId !== newUserId) {
+                                return db.ref(`users/${userId}`).remove()
+                                    .then(() => {
+                                        console.log('Removed old user entry');
+                                        // 将用户信息存储到新的记录中
+                                        return db.ref(`users/${newUserId}`).set({
+                                            id: userData.id,
+                                            name: userData.name,
+                                            password: userData.password,
+                                            role: userData.role,
+                                            status: userData.status,
+                                            createdAt: userData.createdAt || firebase.database.ServerValue.TIMESTAMP
+                                        });
+                                    });
+                            } else {
+                                // 用户ID没变，直接更新
+                                return db.ref(`users/${newUserId}`).update({
+                                    id: userData.id,
+                                    name: userData.name,
+                                    password: userData.password,
+                                    role: userData.role,
+                                    status: userData.status
+                                });
+                            }
+                        })
+                        .then(() => {
+                            // 显示用户信息
+                            document.getElementById('userName').querySelector('.username-text').textContent = userData.name;
+                            document.getElementById('userRole').textContent = userRole;
+                            document.getElementById('userInfo').style.display = 'flex';
+                            document.getElementById('authContainer').style.display = 'none';
+                            
+                            // 应用权限
+                            applyRoleBasedPermissions(userRole);
+                            
+                            // 显示PWA安装提示
+                            showPWAInstallPrompt();
+                        });
+                });
+        }
+
+        // 登出功能
+        function logout() {
+            auth.signOut()
+                .then(() => {
+                    currentUser = null;
+                    document.getElementById('authContainer').style.display = 'flex';
+                    document.getElementById('userInfo').style.display = 'none';
+                })
+                .catch((error) => {
+                    console.error('Logout error:', error);
+                });
+        }
+
+        // 添加库存查询函数 (修改为使用stockDb)
         function loadQuantitiesFromFirebase() {
             const locations = ['office', 'kepayan'];
             
             locations.forEach(location => {
-                db.ref(`inventory/${location}`).on('value', (snapshot) => {
+                stockDb.ref(`inventory/${location}`).on('value', (snapshot) => {
                     const data = snapshot.val();
                     
                     if (data) {
@@ -1083,11 +2207,7 @@
                     updatePreview();
                 }, (error) => {
                     if (error) {
-                        console.error('读取库存数据错误:', error);
-                        const productList = document.getElementById('productList');
-                        if (productList) {
-                            productList.innerHTML = '<div class="error-message">无法加载库存信息，请稍后再试</div>';
-                        }
+                        console.error('Error reading inventory data:', error);
                     }
                 });
             });
@@ -1095,24 +2215,31 @@
 
         // 修改 updateStockDisplay 函数
         function updateStockDisplay() {
-            Object.entries(categories).forEach(([category, products]) => {
-                products.forEach(product => {
-                    const label = document.querySelector(`label[for="item${product.id}"]`);
-                    if (label) {
-                        const stock = stockMap[product.name] || 0;
-                        const stockClass = stock === 0 ? 'zero-stock' : '';
-                        const stockText = stock === 0 ? '(缺货)' : `(Stock: ${stock})`;
-                        
-                        // 添加查看图片按钮（如果有图片URL）
-                        const viewImageButton = product.imageUrl ? 
-                            `<button class="view-image-btn" onclick="showImage('${product.imageUrl}', '${product.name}')">View</button>` : '';
-                        
-                        // 修改这里，将 viewImageButton 放在 stockText 后面
-                        label.innerHTML = `${product.name} <span class="${stockClass}">${stockText} ${viewImageButton}</span>`;
-                    }
-                });
-            });
-        }
+    Object.entries(categories).forEach(([category, products]) => {
+        products.forEach(product => {
+            const label = document.querySelector(`label[for="item${product.id}"]`);
+            if (label) {
+                let stock = stockMap[product.name] || 0;
+                
+                // 特殊处理 Amplang 商品
+                if ([601, 602, 603].includes(product.id)) { // 这三个商品的ID
+                    stock = Math.floor(stock / 60); // 取整数部分
+                }
+
+                const stockClass = stock === 0 ? 'zero-stock' : '';
+                const stockText = stock === 0 ? '(No Stock)' : `(Stock: ${stock})`;
+                
+                // 添加查看图片按钮（如果有图片URL）
+                const viewImageButton = product.imageUrl ? 
+                    `<button class="view-image-btn" onclick="showImage('${product.imageUrl}', '${product.name}')">
+                        <span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle; margin-right: 3px;">image</span>View
+                    </button>` : '';
+                
+                label.innerHTML = `${product.name} <span class="${stockClass}">${stockText} ${viewImageButton}</span>`;
+            }
+        });
+    });
+}
 
         // 分类商品
         const categories = {
@@ -1192,6 +2319,7 @@
             HopHup: [
                 { id: 201, name: "HH Durian Tart" },
                 { id: 202, name: "HH Mango Tart" },
+		{ id: 221, name: "HH Dried Fruit Mango" },
                 { id: 203, name: "HH Durian Wafer Roll" },
                 { id: 204, name: "HH Mango Wafer Roll" },
                 { id: 205, name: "HH Omelette Crisp Durian" },
@@ -1262,13 +2390,22 @@
                 { id: 603, name: "Amplang Sotong", unit: 'pkt', defaultQuantity: 1 }
             ],
             Other: [
-                { id: 701, name: "Fruity Gummy Assorted" },
+                 { id: 701, name: "Fruity Gummy Assorted" },
                 { id: 702, name: "Fruity Gummy Mango" },
+		{ id: 710, name: "Sour Gummy Blackcurrant" },
+		{ id: 711, name: "Sour Gummy Apple" },
                 { id: 703, name: "Durian Kuih" },
                 { id: 704, name: "Anchovy Blue" },
                 { id: 705, name: "Anchovy Green" },
-                { id: 706, name: "Crispy Anchory Spicy (Red)" },
-                { id: 707, name: "Crispy Anchory Honey (Yellow)" }
+                { id: 706, name: "Anchovy Red" },
+                { id: 707, name: "Anchovy Yellow" },
+                { id: 708, name: "Prawn Cracker 500g", unit: 'pkt' },
+                { id: 709, name: "Fish Maw", unit: 'pkt' }
+            ],
+            Wrapping: [
+                 { id: 801, name: "Wrapping Machine", unit: 'roll' },
+                { id: 802, name: "Wrapping Mini" ,unit: 'roll'},
+                { id: 809, name: "Neck Pillow", unit: 'pc' }
             ]
         };
 
@@ -1278,7 +2415,20 @@
             const productList = document.getElementById('productList');
             productList.innerHTML = '';
 
-            products.forEach(product => {
+            // 根据库存状态排序商品
+            const sortedProducts = [...products].sort((a, b) => {
+                const stockA = stockMap[a.name] || 0;
+                const stockB = stockMap[b.name] || 0;
+                
+                // 如果两个商品都有库存或都没有库存，保持原有顺序
+                if ((stockA > 0) === (stockB > 0)) {
+                    return 0;
+                }
+                // 有库存的排在前面
+                return stockA > 0 ? -1 : 1;
+            });
+
+            sortedProducts.forEach(product => {
                 const div = document.createElement('div');
                 const isChecked = selectedItems[product.id] ? 'checked' : '';
                 const defaultQuantity = product.defaultQuantity || 1;
@@ -1286,7 +2436,9 @@
                 
                 // 添加查看图片按钮
                 const viewImageButton = product.imageUrl ? 
-                    `<button class="view-image-btn" onclick="showImage('${product.imageUrl}', '${product.name}')">View</button>` : '';
+                    `<button class="view-image-btn" onclick="showImage('${product.imageUrl}', '${product.name}')">
+                        <span class="material-icons-outlined" style="font-size: 16px; vertical-align: middle; margin-right: 3px;">image</span>View
+                    </button>` : '';
 
                 div.innerHTML = `
                     <input type="checkbox" id="item${product.id}" ${isChecked} onchange="saveItem(${product.id}, '${product.name}')">
@@ -1294,13 +2446,17 @@
                         ${product.name}
                         ${viewImageButton}
                     </label>
-                    <button class="quantity-btn" onclick="changeQuantity(${product.id}, 1)">+</button>
+                    <button class="quantity-btn" onclick="changeQuantity(${product.id}, 1)">
+                        <span class="material-icons-round" style="font-size: 18px;">add</span>
+                    </button>
                     <input type="number"
                            id="quantity${product.id}"
                            min="1"
                            value="${currentQuantity}"
                            readonly>
-                    <button class="quantity-btn" onclick="changeQuantity(${product.id}, -1)">-</button>
+                    <button class="quantity-btn" onclick="changeQuantity(${product.id}, -1)">
+                        <span class="material-icons-round" style="font-size: 18px;">remove</span>
+                    </button>
                 `;
                 productList.appendChild(div);
             });
@@ -1450,6 +2606,8 @@
             let selectedStore = document.querySelector('input[name="store"]:checked');
             let hasAddOn = document.getElementById('addOnCheckbox').checked;
             let totalItems = 0;
+            // 获取用户名
+            const userName = document.querySelector('#userName .username-text').textContent;
 
             if (selectedStore) {
                 result += 'Kedai: ' + selectedStore.value;
@@ -1457,8 +2615,12 @@
                     result += ' 💥Add On💥';
                 }
                 result += '\n\n';
+                // 添加Order By信息
+                result += 'Order By: (' + userName + ')\n\n';
             } else {
                 result += 'Kedai: 未选择\n';
+                // 添加Order By信息
+                result += 'Order By: (' + userName + ')\n\n';
             }
 
             const categorizedItems = {};
@@ -1519,7 +2681,7 @@
             // 使用 generateText(true) 来获取纯文本版本
             let text = generateText(true);
             navigator.clipboard.writeText(text).then(() => {
-                alert('文字已复制，现在跳转到WhatsApp');
+                alert('Text copied, now redirecting to WhatsApp');
                 let whatsappURL = `https://wa.me/?text=${encodeURIComponent(text)}`;
                 window.location.href = whatsappURL;
             }).catch(err => {
@@ -1563,9 +2725,13 @@
             div.innerHTML = `
                 <input type="checkbox" id="item${product.id}" checked onchange="saveItem(${product.id}, '${product.name}')">
                 <label for="item${product.id}">${product.name} <span class="${stockClass}">${stockText}</span></label>
-                <button class="quantity-btn" onclick="changeQuantity(${product.id}, 1)">+</button>
+                <button class="quantity-btn" onclick="changeQuantity(${product.id}, 1)">
+                    <span class="material-icons-round" style="font-size: 18px;">add</span>
+                </button>
                 <input type="number" id="quantity${product.id}" min="1" value="1" onchange="saveQuantity(${product.id})">
-                <button class="quantity-btn" onclick="changeQuantity(${product.id}, -1)">-</button>
+                <button class="quantity-btn" onclick="changeQuantity(${product.id}, -1)">
+                    <span class="material-icons-round" style="font-size: 18px;">remove</span>
+                </button>
             `;
             productList.appendChild(div);
 
@@ -1636,6 +2802,11 @@
         }
 
         function addRippleEffect(element, event) {
+            // 在低性能模式下不添加涟漪效果
+            if (document.body.classList.contains('low-perf-mode')) {
+                return;
+            }
+            
             const ripple = document.createElement('div');
             ripple.classList.add('ripple');
             
@@ -1675,10 +2846,16 @@
                 previewWindow.style.display = 'block';
                 previewIcon.style.display = 'none';
                 allowAutoShow = true;  // 用户主动显示时，允许自动显示
+                
+                // 高亮底部导航栏中的订单预览按钮
+                highlightNavItem('receipt_long');
             } else {
                 previewWindow.style.display = 'none';
                 previewIcon.style.display = 'flex';
                 allowAutoShow = false;  // 用户主动关闭时，禁止自动显示
+                
+                // 重置底部导航高亮
+                resetNavHighlights();
             }
         }
 
@@ -1693,11 +2870,16 @@
         // 添加设置相关的函数
         function toggleSettings() {
             const panel = document.getElementById('settings-panel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                // 高亮底部导航栏中的设置按钮
+                highlightNavItem('settings');
+            } else {
+                panel.style.display = 'none';
+                // 重置底部导航高亮
+                resetNavHighlights();
+            }
         }
-
-        // 初始化设置按钮点击事件
-        document.getElementById('settings-button').addEventListener('click', toggleSettings);
 
         // 修改字体大小调整函数
         function changeFontSize(value) {
@@ -1724,6 +2906,10 @@
             // 初始化震动设置
             const isVibrationEnabled = localStorage.getItem('vibration-enabled') !== 'disabled';
             toggleVibration(isVibrationEnabled);
+            
+            // 加载性能模式设置
+            const isLowPerfMode = localStorage.getItem('lowPerfMode') === 'true';
+            togglePerformanceMode(isLowPerfMode);
         });
 
         // 修改主题切换函数
@@ -1747,13 +2933,27 @@
         // 添加点击外部关闭设置面板的功能
         document.addEventListener('click', function(event) {
             const settingsPanel = document.getElementById('settings-panel');
-            const settingsButton = document.getElementById('settings-button');
+            const userMenu = document.getElementById('user-menu');
+            const dashboard = document.getElementById('side-dashboard');
+            const bottomNav = document.querySelector('.bottom-nav');
             
-            if (!settingsPanel.contains(event.target) && 
-                !settingsButton.contains(event.target) && 
-                settingsPanel.style.display === 'block') {
+            // 关闭设置面板
+            if (settingsPanel.style.display === 'block' && 
+                !settingsPanel.contains(event.target) && 
+                !bottomNav.contains(event.target)) {
                 settingsPanel.style.display = 'none';
+                resetNavHighlights();
             }
+            
+            // 关闭用户菜单 (保留但实际上不再使用)
+            if (userMenu && userMenu.style.display === 'flex' && 
+                !userMenu.contains(event.target) && 
+                !bottomNav.contains(event.target)) {
+                userMenu.style.display = 'none';
+                resetNavHighlights();
+            }
+            
+            // 关闭仪表板(不需要处理，因为有专门的overlay)
         });
 
         // 修改认证状态监听
@@ -1769,9 +2969,541 @@
                 }
             }
         });
+
+        // 添加低性能模式的处理逻辑
+        const lowPerfModeToggle = document.getElementById('lowPerfModeToggle');
+        lowPerfModeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                document.body.classList.add('low-perf-mode');
+            } else {
+                document.body.classList.remove('low-perf-mode');
+            }
+            // 保存设置到 localStorage
+            localStorage.setItem('lowPerfMode', this.checked);
+        });
+
+        // 页面加载时检查之前的设置
+        if (localStorage.getItem('lowPerfMode') === 'true') {
+            lowPerfModeToggle.checked = true;
+            document.body.classList.add('low-perf-mode');
+        }
+
+        // 添加性能模式切换函数
+        function togglePerformanceMode(isLowPerf) {
+            if (isLowPerf) {
+                document.body.classList.add('low-perf-mode');
+                document.getElementById('low-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                document.getElementById('high-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            } else {
+                document.body.classList.remove('low-perf-mode');
+                document.getElementById('low-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                document.getElementById('high-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+            }
+            localStorage.setItem('lowPerfMode', isLowPerf);
+        }
+
+        // 打开管理员面板
+        function openAdminPanel() {
+            document.getElementById('adminPanel').style.display = 'flex';
+            loadUsersList();
+        }
+        
+        // 加载用户列表
+        function loadUsersList() {
+            // 加载待审核用户
+            db.ref('users').orderByChild('status').equalTo('pending').once('value')
+                .then((snapshot) => {
+                    const pendingUsersDiv = document.getElementById('pendingUsersList');
+                    if (!snapshot.exists()) {
+                        pendingUsersDiv.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No pending users</p>';
+                        return;
+                    }
+                    
+                    let pendingHtml = '';
+                    snapshot.forEach((childSnapshot) => {
+                        const userId = childSnapshot.key;
+                        const user = childSnapshot.val();
+                        
+                        pendingHtml += `
+                            <div class="user-card">
+                                <div class="user-info-section">
+                                    <span class="user-name">${user.name} (${user.id})</span>
+                                    <span class="user-meta">Registration time: ${new Date(user.createdAt).toLocaleString()}</span>
+                                    <span class="user-status">
+                                        <span style="color: #FFA500;">⏳</span>
+                                        <span>Pending</span>
+                                    </span>
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <button onclick="approveUser('${userId}')" class="action-button approve">
+                                        <span style="margin-right: 5px;">✓</span>Approve
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    pendingUsersDiv.innerHTML = pendingHtml;
+                });
+            
+            // 加载所有用户
+            db.ref('users').once('value')
+                .then((snapshot) => {
+                    const allUsersDiv = document.getElementById('allUsersList');
+                    if (!snapshot.exists()) {
+                        allUsersDiv.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No users</p>';
+                        return;
+                    }
+                    
+                    let allHtml = '';
+                    let currentUserRole = userRole;
+                    
+                    snapshot.forEach((childSnapshot) => {
+                        const userId = childSnapshot.key;
+                        const user = childSnapshot.val();
+                        
+                        if (currentUserRole === 'Admin' && user.role !== 'User') {
+                            return;
+                        }
+                        
+                        let statusIcon = '⏳';
+                        let statusColor = '#FFA500';
+                        if (user.status === 'active') {
+                            statusIcon = '✓';
+                            statusColor = '#4CAF50';
+                        }
+                        
+                        let roleManagementButton = '';
+                        if (currentUserRole === 'SAdmin') {
+                            if (user.role === 'User') {
+                                roleManagementButton = `<button onclick="changeUserRole('${userId}', 'User', 'Admin')" class="action-button promote">Promote to Admin</button>`;
+                            } else if (user.role === 'Admin') {
+                                roleManagementButton = `<button onclick="changeUserRole('${userId}', 'Admin', 'User')" class="action-button demote">Demote to User</button>`;
+                            }
+                            
+                            if (user.id !== currentUser.uid) {
+                                roleManagementButton += `<button onclick="deleteUser('${userId}')" class="action-button delete">Delete</button>`;
+                            }
+                        }
+                        
+                        allHtml += `
+                            <div class="user-card">
+                                <div class="user-info-section">
+                                    <span class="user-name">${user.name} (${user.id})</span>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <span class="user-status">
+                                            <span style="color: ${statusColor};">${statusIcon}</span>
+                                            <span>${user.status === 'active' ? 'Active' : 'Pending'}</span>
+                                        </span>
+                                        <span class="user-status" style="background: ${user.role === 'SAdmin' ? 'rgba(156, 39, 176, 0.1)' : user.role === 'Admin' ? 'rgba(33, 150, 243, 0.1)' : 'rgba(76, 175, 80, 0.1)'}">
+                                            ${user.role || 'User'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                                    ${user.status !== 'active' ? 
+                                    `<button onclick="approveUser('${userId}')" class="action-button approve">Activate</button>` : ''}
+                                    ${roleManagementButton}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    allUsersDiv.innerHTML = allHtml;
+                });
+        }
+        
+        // 审核通过用户
+        function approveUser(userId) {
+            db.ref(`users/${userId}`).update({
+                status: 'active'
+            }).then(() => {
+                alert('User approved');
+                loadUsersList(); // 重新加载用户列表
+            }).catch(error => {
+                console.error('User approval failed:', error);
+                alert('User approval failed: ' + error.message);
+            });
+        }
+        
+        // 修改用户角色
+        function changeUserRole(userId, currentRole, newRole) {
+            if (confirm(`Are you sure you want to change this user's role from ${currentRole} to ${newRole}?`)) {
+                db.ref(`users/${userId}`).update({
+                    role: newRole
+                }).then(() => {
+                    alert(`User role updated to ${newRole}`);
+                    loadUsersList(); // 重新加载用户列表
+                }).catch(error => {
+                    console.error('Role update failed:', error);
+                    alert('Role update failed: ' + error.message);
+                });
+            }
+        }
+
+        // Add delete user function
+        function deleteUser(userId) {
+            if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+                // 获取要删除的用户信息
+                db.ref(`users/${userId}`).once('value')
+                    .then((snapshot) => {
+                        if (!snapshot.exists()) {
+                            alert('User not found');
+                            return;
+                        }
+                        
+                        const userData = snapshot.val();
+                        const userIdToDelete = userData.id;
+                        
+                        // 查找是否有重复的用户ID
+                        return db.ref('users').orderByChild('id').equalTo(userIdToDelete).once('value')
+                            .then((duplicatesSnapshot) => {
+                                if (duplicatesSnapshot.numChildren() > 1) {
+                                    // 找到所有相同ID的用户，全部删除
+                                    const deletePromises = [];
+                                    duplicatesSnapshot.forEach((childSnapshot) => {
+                                        deletePromises.push(db.ref(`users/${childSnapshot.key}`).remove());
+                                    });
+                                    
+                                    return Promise.all(deletePromises);
+                                } else {
+                                    // 只有一个用户，直接删除
+                                    return db.ref(`users/${userId}`).remove();
+                                }
+                            });
+                    })
+                    .then(() => {
+                        alert('User has been deleted');
+                        loadUsersList(); // Reload the user list
+                    })
+                    .catch(error => {
+                        console.error('Delete user failed:', error);
+                        alert('Delete user failed: ' + error.message);
+                    });
+            }
+        }
+
+        // 返回登录页面
+        function backToLogin() {
+            document.getElementById('pendingForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('authTitle').textContent = '用户登录';
+        }
+
+        // 登录相关代码
+        function login() {
+            // ... existing code ...
+            
+            // 不再显示自定义的PWA安装提示
+            // 注释掉此行，让Chrome显示原生的安装提示
+            // showPWAInstallPrompt();
+        }
+        
+        // 显示PWA安装提示
+        function showPWAInstallPrompt() {
+            // 检查是否已经安装过PWA
+            if (window.matchMedia('(display-mode: standalone)').matches || 
+                window.navigator.standalone === true) {
+                console.log('应用已经以PWA模式安装');
+                return; // 已经安装过，不显示提示
+            }
+            
+            // 如果有安装提示事件，触发Chrome原生安装提示
+            if (deferredPrompt) {
+                // 直接触发Chrome原生的安装提示
+                deferredPrompt.prompt();
+                
+                // 跟踪用户的选择
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    console.log('用户的安装选择: ' + choiceResult.outcome);
+                    
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('用户接受了安装');
+                    } else {
+                        console.log('用户取消了安装');
+                    }
+                    
+                    // 清除提示事件
+                    deferredPrompt = null;
+                });
+            } else {
+                console.log('没有可用的安装提示事件，或PWA安装条件尚未满足');
+                console.log('提示：请确保已使用过该应用一段时间后，Chrome才会提供安装选项');
+            }
+        }
+
+        let updateNotificationShown = false;
     </script>
 
-    <p class="contact-info">🌟If you have any questions or suggestion please contact me (Mark).<br>🌟Rowan now will help me to update stock amount.</p>
+    <p class="contact-info">🌟If you have any questions or suggestion please contact me (Mark).<br>🌟Stock quantity now will auto update from stock system!.</p>
  
+    <!-- PWA更新提示 -->
+    <div id="update-notification" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37); z-index: 9999;">
+        <p style="margin: 0 0 15px 0; text-align: center; font-weight: bold;">🔄 新版本可用!</p>
+        <button id="update-button" style="width: 100%; background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3); padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.3s;">立即更新</button>
+    </div>
+
+    <script>
+        // PWA Service Worker 注册
+        if ('serviceWorker' in navigator) {
+            let refreshing = false;
+            let updateNotificationShown = false;
+
+            window.addEventListener('load', function() {
+                // 使用相对路径注册Service Worker
+                navigator.serviceWorker.register('./sw.js')
+                    .then(function(registration) {
+                        // 注册成功
+                        console.log('ServiceWorker 注册成功，范围: ', registration.scope);
+                        
+                        // 检查更新
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            console.log('发现新的Service Worker版本');
+                            
+                            newWorker.addEventListener('statechange', () => {
+                                console.log('Service Worker状态变化:', newWorker.state);
+                                // 当新的Service Worker安装完成并等待激活
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // 显示更新通知
+                                    console.log('新版本已准备就绪，显示更新通知');
+                                    showUpdateNotification();
+                                }
+                            });
+                        });
+                        
+                        // 更频繁地检查更新 (每30秒)
+                        setInterval(() => {
+                            console.log('检查Service Worker更新...');
+                            registration.update().catch(err => {
+                                console.error('更新检查失败:', err);
+                            });
+                        }, 30000);
+                    })
+                    .catch(function(error) {
+                        // 注册失败
+                        console.log('ServiceWorker 注册失败: ', error);
+                    });
+                
+                // 页面加载时立即检查一次更新
+                navigator.serviceWorker.ready.then(registration => {
+                    console.log('Service Worker准备就绪，立即检查更新');
+                    registration.update().catch(err => {
+                        console.error('初始更新检查失败:', err);
+                    });
+                });
+                
+                // 监听控制权变化
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!refreshing) {
+                        console.log('Service Worker控制权发生变化，刷新页面');
+                        window.location.reload();
+                        refreshing = true;
+                    }
+                });
+            });
+
+            // 显示更新通知
+            function showUpdateNotification() {
+                // 防止重复显示通知
+                if (updateNotificationShown) return;
+                
+                const notification = document.getElementById('update-notification');
+                notification.style.display = 'block';
+                updateNotificationShown = true;
+                
+                // 更新按钮添加悬停效果
+                const updateButton = document.getElementById('update-button');
+                updateButton.addEventListener('mouseover', function() {
+                    this.style.background = 'rgba(255, 255, 255, 0.3)';
+                });
+                updateButton.addEventListener('mouseout', function() {
+                    this.style.background = 'rgba(255, 255, 255, 0.2)';
+                });
+                
+                // 移除之前可能存在的事件监听器
+                updateButton.removeEventListener('click', updateClickHandler);
+                
+                // 更新按钮点击事件
+                updateButton.addEventListener('click', updateClickHandler);
+            }
+            
+            function updateClickHandler() {
+                if (navigator.serviceWorker.controller) {
+                    // 通知Service Worker跳过等待
+                    navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                    // 只有在用户点击按钮后才隐藏通知
+                    document.getElementById('update-notification').style.display = 'none';
+                    updateNotificationShown = false;
+                }
+            }
+        }
+    </script>
+
+    <!-- 添加PWA安装提示对话框 -->
+    <div id="pwa-install-prompt" style="
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0 0 8px 0; font-size: 16px;">安装应用</h3>
+                <p style="margin: 0; font-size: 14px;">添加到主屏幕，获得更好的体验！</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button id="pwa-install-later" style="
+                    background: rgba(255, 255, 255, 0.2);
+                    border: none;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                ">稍后</button>
+                <button id="pwa-install-now" style="
+                    background: #4285F4;
+                    border: none;
+                    color: white;
+                    padding: 8px 15px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">立即安装</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航栏 -->
+    <div class="bottom-nav">
+        <!-- 菜单按钮 (替换原来的用户按钮) -->
+        <div class="bottom-nav-item" id="menuNavItem" onclick="toggleDashboard()">
+            <span class="material-icons">menu</span>
+            <span class="label">Menu</span>
+        </div>
+        
+        <!-- 订单预览按钮 -->
+        <div class="bottom-nav-item" id="previewNavItem" onclick="togglePreview()">
+            <span class="material-icons">description</span>
+            <span class="label">Order</span>
+        </div>
+        
+        <!-- 设置按钮 -->
+        <div class="bottom-nav-item" id="settingsNavItem" onclick="toggleSettings()">
+            <span class="material-icons">settings</span>
+            <span class="label">Setting</span>
+        </div>
+    </div>
+
+    <!-- 左侧仪表板 -->
+    <div id="side-dashboard" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100%;
+        background: #1a2035; /* 纯色背景替代半透明 */
+        z-index: 1500;
+        display: none; /* 直接用display控制显示/隐藏，不用transform和transition */
+        flex-direction: column;
+        border-right: 1px solid #3a4255;
+        overflow-y: auto;">
+        
+        <!-- 仪表板头部 -->
+        <div style="padding: 25px 20px 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #fff;">Welcome</h2>
+                <span class="material-icons" style="font-size: 24px; cursor: pointer; color: rgba(255, 255, 255, 0.7);" 
+                     onclick="toggleDashboard()">close</span>
+            </div>
+            
+            <!-- 用户信息卡片 -->
+            <div style="
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 10px;
+                padding: 15px;
+                margin-top: 5px;">
+                <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <span class="material-icons" style="font-size: 40px; margin-right: 15px; color: #4285F4;">account_circle</span>
+                    <div>
+                        <div style="font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                             id="dashboardUserName">Not logged in</div>
+                        <div style="font-size: 14px; color: rgba(255, 255, 255, 0.7);" id="dashboardUserRole">Guest</div>
+                    </div>
+                </div>
+                
+                <!-- 管理和登出按钮 -->
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <!-- 管理按钮 - 仅对Admin和SAdmin显示 -->
+                    <button id="dashboardAdminButton" style="
+                        flex: 1;
+                        padding: 8px 0;
+                        border-radius: 5px;
+                        background: rgba(255, 255, 255, 0.1);
+                        border: none;
+                        color: white;
+                        font-size: 14px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                        display: none;" 
+                        onclick="openAdminPanel(); toggleDashboard();">
+                        <span class="material-icons" style="font-size: 16px;">admin_panel_settings</span>
+                        Manage
+                    </button>
+                    
+                    <!-- 登出按钮 -->
+                    <button style="
+                        flex: 1;
+                        padding: 8px 0;
+                        border-radius: 5px;
+                        background: rgba(255, 255, 255, 0.1);
+                        border: none;
+                        color: white;
+                        font-size: 14px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;" 
+                        onclick="logout()">
+                        <span class="material-icons" style="font-size: 16px;">logout</span>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 仪表板主体内容区域 - 可以在这里添加更多菜单项和功能 -->
+        <div style="padding: 20px; flex-grow: 1;">
+            <!-- 这里可以添加更多的仪表板功能区域 -->
+        </div>
+    </div>
+
+    <!-- 仪表板背景遮罩 -->
+    <div id="dashboard-overlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1499;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;"
+        onclick="toggleDashboard()">
+    </div>
 </body>
 </html>
