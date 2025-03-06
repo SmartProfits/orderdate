@@ -2526,24 +2526,31 @@
             const previewIcon = document.getElementById('preview-icon');
 
             vibrate(); // 添加震动反馈
+            
+            console.log("商品选择状态变更:", id, name, checkbox.checked, quantity); // 添加调试日志
 
             if (checkbox.checked) {
                 selectedItems[id] = quantity;
-                if (Object.keys(selectedItems).length === 1) {
-                    if (allowAutoShow) {
-                        previewWindow.style.display = 'block';
-                        previewIcon.style.display = 'none';
-                    } else {
-                        previewIcon.style.display = 'flex';
-                    }
+                console.log("已选商品:", selectedItems); // 添加调试日志
+                
+                // 确保预览窗口显示
+                if (allowAutoShow) {
+                    previewWindow.style.display = 'block';
+                    if (previewIcon) previewIcon.style.display = 'none';
+                } else if (previewIcon) {
+                    previewIcon.style.display = 'flex';
                 }
             } else {
                 delete selectedItems[id];
+                console.log("删除商品后剩余:", selectedItems); // 添加调试日志
+                
                 if (Object.keys(selectedItems).length === 0) {
                     previewWindow.style.display = 'none';
-                    previewIcon.style.display = 'none';
+                    if (previewIcon) previewIcon.style.display = 'none';
                 }
             }
+            
+            // 强制更新预览内容
             updatePreview();
         }
 
@@ -2599,12 +2606,26 @@
         }
 
         function generateText(forWhatsApp = false) {
+            console.log("生成预览文本，选中商品:", selectedItems); // 添加调试日志
+            
             let result = '';
             let selectedStore = document.querySelector('input[name="store"]:checked');
             let hasAddOn = document.getElementById('addOnCheckbox').checked;
             let totalItems = 0;
-            // 获取用户名
-            const userName = document.querySelector('#userName .username-text').textContent;
+            
+            // 获取用户名（考虑到用户信息区域被隐藏的情况）
+            let userName = "Guest";
+            try {
+                const userNameElement = document.querySelector('#userName .username-text');
+                if (userNameElement && userNameElement.textContent && userNameElement.textContent !== "Not logged in") {
+                    userName = userNameElement.textContent;
+                } else if (currentUser) {
+                    // 如果DOM中没有用户名，但用户已登录，使用当前用户变量
+                    userName = currentUser.email ? currentUser.email.split('@')[0] : "Guest";
+                }
+            } catch (e) {
+                console.error("获取用户名出错:", e);
+            }
 
             if (selectedStore) {
                 result += 'Kedai: ' + selectedStore.value;
@@ -2612,11 +2633,11 @@
                     result += ' 💥Add On💥';
                 }
                 result += '\n';
-                // 添加Order By信息，不空行
+                // 添加Order By信息
                 result += 'Order By: (' + userName + ')\n\n';
             } else {
                 result += 'Kedai: 未选择\n';
-                // 添加Order By信息，不空行
+                // 添加Order By信息
                 result += 'Order By: (' + userName + ')\n\n';
             }
 
@@ -2811,10 +2832,29 @@
 
         // 修改 updatePreview 函数
         function updatePreview() {
+            console.log("更新预览内容"); // 添加调试日志
+            
             const previewContent = document.getElementById('preview-content');
+            if (!previewContent) {
+                console.error("找不到预览内容元素");
+                return;
+            }
+            
+            // 检查是否有选中的商品
+            if (Object.keys(selectedItems).length === 0) {
+                previewContent.innerHTML = '<div style="text-align: center; padding: 20px;">未选择任何商品</div>';
+                return;
+            }
+            
             // 使用 generateText(false) 来获取带HTML标签的版本
             const text = generateText(false);
             previewContent.innerHTML = text.replace(/\n/g, '<br>');
+            
+            // 确保预览窗口可见
+            const previewWindow = document.getElementById('preview-window');
+            if (Object.keys(selectedItems).length > 0 && allowAutoShow) {
+                previewWindow.style.display = 'block';
+            }
         }
 
         // 修改 togglePreview 函数
@@ -3451,5 +3491,47 @@
         transition: opacity 0.3s ease;"
         onclick="toggleDashboard()">
     </div>
+
+    <!-- 确保DOM加载完成后初始化所有事件 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM加载完成，初始化事件");
+            
+            // 初始化Add On复选框事件
+            const addOnCheckbox = document.getElementById('addOnCheckbox');
+            if (addOnCheckbox) {
+                addOnCheckbox.addEventListener('change', function() {
+                    console.log("Add On状态变更:", this.checked);
+                    updatePreview();
+                });
+            }
+            
+            // 初始化商店选择事件
+            document.querySelectorAll('input[name="store"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    console.log("商店选择变更:", this.value);
+                    updatePreview();
+                });
+            });
+            
+            // 初始化预览窗口
+            const previewWindow = document.getElementById('preview-window');
+            if (previewWindow) {
+                previewWindow.style.display = 'none';
+            }
+            
+            // 初始化selectedItems对象
+            selectedItems = {};
+            
+            // 加载商品列表
+            const categorySelect = document.getElementById('categorySelect');
+            if (categorySelect) {
+                const selectedCategory = categorySelect.value;
+                if (categories[selectedCategory]) {
+                    loadProducts(categories[selectedCategory]);
+                }
+            }
+        });
+    </script>
 </body>
 </html>
