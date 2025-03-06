@@ -197,16 +197,29 @@
         
         // 更新仪表板中的用户信息
         function updateDashboardUserInfo() {
-            const userName = document.querySelector('#userName .username-text').textContent;
-            const userRole = document.getElementById('userRole').textContent;
+            // 使用当前用户信息变量而不是从DOM中获取
+            let displayName = "Not logged in";
+            let displayRole = "Guest";
             
-            document.getElementById('dashboardUserName').textContent = userName;
-            document.getElementById('dashboardUserRole').textContent = userRole;
+            if (currentUser) {
+                // 如果用户已登录，使用当前用户信息
+                displayName = document.querySelector('#userName .username-text').textContent;
+                displayRole = userRole || "User";
+                
+                // 同时更新顶部用户信息显示（但保持隐藏状态）
+                document.getElementById('userName').querySelector('.username-text').textContent = displayName;
+                document.getElementById('userRole').textContent = displayRole;
+                // 不再显示用户信息区域
+                // document.getElementById('userInfo').style.display = 'flex';
+            }
+            
+            // 更新仪表板中的用户信息
+            document.getElementById('dashboardUserName').textContent = displayName;
+            document.getElementById('dashboardUserRole').textContent = displayRole;
             
             // 检查是否应该显示管理按钮
-            const role = userRole.trim();
             const adminButton = document.getElementById('dashboardAdminButton');
-            if (role === 'Admin' || role === 'SAdmin') {
+            if (displayRole === 'Admin' || displayRole === 'SAdmin') {
                 adminButton.style.display = 'flex';
             } else {
                 adminButton.style.display = 'none';
@@ -313,6 +326,20 @@
         /* 黑暗模式下的 stock 信息颜色 */
         body.dark-mode #productList label span {
             color: #ffd700;  /* 黄色 */
+        }
+        
+        /* 输入容器样式 */
+        .input-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-75%);
+            color: rgba(255,255,255,0.5);
         }
 
         .shop-container {
@@ -1058,48 +1085,6 @@
             background: rgba(0, 0, 0, 0.1);
         }
 
-        /* 低性能模式的样式 */
-        .low-perf-mode .glass-effect,
-        .low-perf-mode #productList div,
-        .low-perf-mode button,
-        .low-perf-mode #result,
-        .low-perf-mode #productSearch,
-        .low-perf-mode #suggestions,
-        .low-perf-mode .contact-info,
-        .low-perf-mode .shop-card,
-        .low-perf-mode .category-card,
-        .low-perf-mode #settings-panel,
-        .low-perf-mode #preview-window,
-        .low-perf-mode #preview-icon {
-            /* 替换所有磨砂玻璃效果为简单半透明背景 */
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            background: rgba(255, 255, 255, 0.8) !important;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        /* 深色模式下的低性能样式 */
-        .low-perf-mode.dark-mode .glass-effect,
-        .low-perf-mode.dark-mode #productList div,
-        .low-perf-mode.dark-mode button,
-        .low-perf-mode.dark-mode #result,
-        .low-perf-mode.dark-mode #productSearch,
-        .low-perf-mode.dark-mode #suggestions,
-        .low-perf-mode.dark-mode .contact-info,
-        .low-perf-mode.dark-mode .shop-card,
-        .low-perf-mode.dark-mode .category-card,
-        .low-perf-mode.dark-mode #settings-panel,
-        .low-perf-mode.dark-mode #preview-window,
-        .low-perf-mode.dark-mode #preview-icon {
-            background: rgba(30, 30, 30, 0.8) !important;
-        }
-
-        /* 禁用所有动画效果 */
-        .low-perf-mode * {
-            animation: none !important;
-            transition: none !important;
-        }
-
         /* 登录和注册界面样式 */
         .auth-container {
             position: fixed;
@@ -1433,12 +1418,12 @@
             
             <!-- 登录表单 -->
             <div id="loginForm" class="auth-form">
-                <div style="position: relative;">
-                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">person</span>
-                    <input type="text" id="loginId" placeholder="Enter ID" required style="padding-left: 35px;">
+                <div class="input-container">
+                    <span class="material-icons input-icon">email</span>
+                    <input type="email" id="loginEmail" placeholder="Enter Email" required style="padding-left: 35px;">
                 </div>
-                <div style="position: relative;">
-                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">lock</span>
+                <div class="input-container">
+                    <span class="material-icons input-icon">password</span>
                     <input type="password" id="loginPassword" placeholder="Enter Password" required style="padding-left: 35px;">
                 </div>
                 <button id="loginButton">
@@ -1451,16 +1436,16 @@
             
             <!-- 注册表单 -->
             <div id="registerForm" class="auth-form" style="display: none;">
-                <div style="position: relative;">
-                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">badge</span>
-                    <input type="text" id="registerId" placeholder="Set ID" required style="padding-left: 35px;">
+                <div class="input-container">
+                    <span class="material-icons input-icon">email</span>
+                    <input type="email" id="registerEmail" placeholder="Enter Email" required style="padding-left: 35px;">
                 </div>
-                <div style="position: relative;">
-                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">lock</span>
+                <div class="input-container">
+                    <span class="material-icons input-icon">password</span>
                     <input type="password" id="registerPassword" placeholder="Set Password" required style="padding-left: 35px;">
                 </div>
-                <div style="position: relative;">
-                    <span class="material-icons" style="position: absolute; left: 10px; top: 50%; transform: translateY(-75%); color: rgba(255,255,255,0.5);">person</span>
+                <div class="input-container">
+                    <span class="material-icons input-icon">person</span>
                     <input type="text" id="registerName" placeholder="Enter Name" required style="padding-left: 35px;">
                 </div>
                 <button id="registerButton">
@@ -1633,30 +1618,8 @@
             </div>
         </div>
         
-        <!-- 添加低性能模式选项 -->
-        <div style="margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 10px; display: flex; align-items: center;">
-                <span class="material-icons-round" style="font-size: 18px; margin-right: 8px;">speed</span>Performance
-            </label>
-            <div style="display: flex; gap: 10px;">
-                <button id="high-perf-btn" 
-                        onclick="togglePerformanceMode(false)" 
-                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                    <span class="material-icons-round" style="font-size: 16px;">hd</span>
-                    High
-                </button>
-                <button id="low-perf-btn" 
-                        onclick="togglePerformanceMode(true)" 
-                        style="flex: 1; padding: 8px; border-radius: 5px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                    <span class="material-icons-round" style="font-size: 16px;">rocket</span>
-                    Smooth
-                </button>
-            </div>
-        </div>
+        <!-- 删除了低性能模式选项 -->
         
-
-        
-
         <div style="margin-top: 20px;">
             <label style="display: block; margin-bottom: 10px; display: flex; align-items: center;">
                 <span class="material-icons-round" style="font-size: 18px; margin-right: 8px;">vibration</span>Vibration
@@ -1833,14 +1796,14 @@
     <script>
         // 认证用Firebase配置
         const authFirebaseConfig = {
-            apiKey: "AIzaSyAs2ZN6dIqV6mxCGyNc87NhYDMHbjtXlHg",
-            authDomain: "order-8649a.firebaseapp.com",
-            databaseURL: "https://order-8649a-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "order-8649a",
-            storageBucket: "order-8649a.firebasestorage.app",
-            messagingSenderId: "786186314747",
-            appId: "1:786186314747:web:d50dc099fcfa0aa1ece15e",
-            measurementId: "G-XH6PV5ZQ8H"
+            apiKey: "AIzaSyBO5zgKEHDE4hkVdWOVVpcpodB7Sl1UUro",
+            authDomain: "angpao-da62f.firebaseapp.com",
+            databaseURL: "https://angpao-da62f-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "angpao-da62f",
+            storageBucket: "angpao-da62f.firebasestorage.app",
+            messagingSenderId: "303412944902",
+            appId: "1:303412944902:web:0e9c30451c4cc37258a387",
+            measurementId: "G-WDX94CKZ1Q"
         };
         
         // 库存查询用Firebase配置
@@ -1872,82 +1835,110 @@
         // 身份验证状态监听
         auth.onAuthStateChanged((user) => {
             if (user) {
-                // 用户已登录
-                currentUser = user;
+                console.log('用户已登录:', user.uid);
                 
-                // 从数据库获取用户信息和角色
-                db.ref(`users/${user.uid}`).once('value').then((snapshot) => {
-                    const userData = snapshot.val();
-                    if (userData) {
-                        // 检查用户状态，如果是pending则显示等待审核界面
-                        if (userData.status === 'pending') {
-                            document.getElementById('loginForm').style.display = 'none';
-                            document.getElementById('registerForm').style.display = 'none';
-                            document.getElementById('pendingForm').style.display = 'block';
-                            document.getElementById('authTitle').textContent = 'Account Pending';
-                            document.getElementById('authContainer').style.display = 'flex';
-                            document.getElementById('userInfo').style.display = 'none';
-                            return;
+                // 获取用户信息
+                db.ref(`users/${user.uid}`).once('value')
+                    .then((snapshot) => {
+                        if (snapshot.exists()) {
+                            const userData = snapshot.val();
+                            
+                            // 检查用户状态
+                            if (userData.status === 'active') {
+                                // 更新当前用户信息
+                                currentUser = user;
+                                userRole = userData.role || 'User';
+                                
+                                // 更新用户信息显示（但保持隐藏状态）
+                                document.getElementById('userName').querySelector('.username-text').textContent = userData.name || userData.email.split('@')[0];
+                                document.getElementById('userRole').textContent = userRole;
+                                // 不再显示用户信息区域
+                                // document.getElementById('userInfo').style.display = 'flex';
+                                
+                                // 应用角色权限
+                                applyRoleBasedPermissions(userRole);
+                                
+                                // 更新仪表板用户信息
+                                updateDashboardUserInfo();
+                                
+                                // 隐藏登录界面
+                                document.getElementById('authContainer').style.display = 'none';
+                                
+                                // 加载数据
+                                loadQuantitiesFromFirebase();
+                            } else if (userData.status === 'pending') {
+                                // 显示等待审核界面
+                                document.getElementById('loginForm').style.display = 'none';
+                                document.getElementById('registerForm').style.display = 'none';
+                                document.getElementById('pendingForm').style.display = 'block';
+                                document.getElementById('authTitle').textContent = '账户待审核';
+                                
+                                // 登出用户，因为他们还没有被批准
+                                auth.signOut();
+                            } else {
+                                // 登出用户
+                                auth.signOut();
+                                alert('您的账户状态异常，请联系管理员');
+                            }
+                        } else {
+                            // 如果用户存在于认证系统但没有数据库记录，创建一个
+                            db.ref(`users/${user.uid}`).set({
+                                email: user.email,
+                                name: user.email.split('@')[0], // 使用邮箱前缀作为默认名称
+                                role: 'User',
+                                status: 'pending',
+                                createdAt: firebase.database.ServerValue.TIMESTAMP
+                            }).then(() => {
+                                // 显示等待审核界面
+                                document.getElementById('loginForm').style.display = 'none';
+                                document.getElementById('registerForm').style.display = 'none';
+                                document.getElementById('pendingForm').style.display = 'block';
+                                document.getElementById('authTitle').textContent = '账户待审核';
+                                
+                                // 登出用户，因为他们还没有被批准
+                                auth.signOut();
+                            });
                         }
-                        
-                        // 正常状态的用户
-                        document.getElementById('userName').querySelector('.username-text').textContent = userData.name || '用户';
-                        userRole = userData.role || 'User';
-                        document.getElementById('userRole').textContent = userRole;
-                        
-                        // 显示用户信息栏
-                        document.getElementById('userInfo').style.display = 'flex';
-                        
-                        // 隐藏登录界面
-                        document.getElementById('authContainer').style.display = 'none';
-                        
-                        // 根据角色控制功能访问权限
-                        applyRoleBasedPermissions(userRole);
-                        
-                        // 加载库存数据
-                        loadQuantitiesFromFirebase();
-                    } else {
-                        // 新注册用户，还没有数据
-                        db.ref(`users/${user.uid}`).set({
-                            id: 'guest_' + Math.floor(Math.random() * 1000),
-                            name: '访客',
-                            role: 'User',
-                            status: 'active', // 访客用户直接设为激活状态
-                            createdAt: firebase.database.ServerValue.TIMESTAMP
-                        }).then(() => {
-                            document.getElementById('userName').querySelector('.username-text').textContent = '访客';
-                            document.getElementById('userRole').textContent = 'User';
-                            document.getElementById('userInfo').style.display = 'flex';
-                            document.getElementById('authContainer').style.display = 'none';
-                            // 加载库存数据
-                            loadQuantitiesFromFirebase();
-                        });
-                    }
-                });
+                    });
             } else {
-                // 用户未登录
+                console.log('用户已登出');
+                // 显示登录界面
                 document.getElementById('authContainer').style.display = 'flex';
-                document.getElementById('userInfo').style.display = 'none';
-                currentUser = null;
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('pendingForm').style.display = 'none';
+                document.getElementById('authTitle').textContent = '用户登录';
+                
+                const productList = document.getElementById('productList');
+                if (productList) {
+                    productList.innerHTML = '<div class="error-message">请登录以查看商品</div>';
+                }
             }
         });
 
         // 应用基于角色的权限控制
         function applyRoleBasedPermissions(role) {
+            console.log('应用角色权限:', role); // 添加日志以便调试
+            
             // 根据不同角色显示/隐藏功能
             const adminButton = document.getElementById('adminButton');
+            const dashboardAdminButton = document.getElementById('dashboardAdminButton');
             
             switch(role) {
                 case 'SAdmin':
                     // 超级管理员拥有所有权限
+                    console.log('设置SAdmin权限');
                     adminButton.style.display = 'inline-block';
+                    dashboardAdminButton.style.display = 'flex';
                     document.querySelectorAll('.sadmin-only').forEach(el => {
                         el.style.display = 'block';
                     });
                     break;
                 case 'Admin':
                     // 管理员拥有管理员权限
+                    console.log('设置Admin权限');
                     adminButton.style.display = 'inline-block';
+                    dashboardAdminButton.style.display = 'flex';
                     // 隐藏超级管理员权限
                     document.querySelectorAll('.sadmin-only').forEach(el => {
                         el.style.display = 'none';
@@ -1956,7 +1947,9 @@
                 case 'User':
                 default:
                     // 普通用户权限
+                    console.log('设置User权限');
                     adminButton.style.display = 'none';
+                    dashboardAdminButton.style.display = 'none';
                     document.querySelectorAll('.sadmin-only').forEach(el => {
                         el.style.display = 'none';
                     });
@@ -1980,127 +1973,131 @@
 
         // 用户注册
         document.getElementById('registerButton').addEventListener('click', () => {
-            const id = document.getElementById('registerId').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
             const password = document.getElementById('registerPassword').value;
             const name = document.getElementById('registerName').value.trim();
             
-            if (!id || !password || !name) {
-                alert('Please fill in all information');
+            if (!email || !password || !name) {
+                alert('请填写所有信息');
                 return;
             }
             
-            // 先检查ID是否已存在
-            db.ref('users').orderByChild('id').equalTo(id).once('value')
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        alert('This ID is already registered. Please choose another ID.');
-                        return;
-                    }
+            // 使用Firebase的电子邮件认证创建用户
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
                     
-                    // 使用匿名登录先创建账户
-                    return auth.signInAnonymously()
-                        .then((userCredential) => {
-                            const user = userCredential.user;
-                            
-                            // 存储用户信息到数据库
-                            return db.ref(`users/${user.uid}`).set({
-                                id: id,
-                                name: name,
-                                password: password,
-                                role: 'User', // 默认角色
-                                status: 'pending', // 默认状态为待审核
-                                createdAt: firebase.database.ServerValue.TIMESTAMP
-                            });
-                        })
-                        .then(() => {
-                            alert('Registration successful. Please wait for administrator approval.');
-                            
-                            // 显示等待审核界面
-                            document.getElementById('loginForm').style.display = 'none';
-                            document.getElementById('registerForm').style.display = 'none';
-                            document.getElementById('pendingForm').style.display = 'block';
-                            document.getElementById('authTitle').textContent = 'Account Pending';
-                        })
-                        .catch((error) => {
-                            console.error('Registration error:', error);
-                            alert('Registration failed: ' + error.message);
-                        });
+                    // 存储用户信息到数据库
+                    return db.ref(`users/${user.uid}`).set({
+                        email: email,
+                        name: name,
+                        role: 'User', // 默认角色
+                        status: 'pending', // 默认状态为待审核
+                        createdAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                })
+                .then(() => {
+                    alert('注册成功。请等待管理员审核。');
+                    
+                    // 显示等待审核界面
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('registerForm').style.display = 'none';
+                    document.getElementById('pendingForm').style.display = 'block';
+                    document.getElementById('authTitle').textContent = '账户待审核';
                 })
                 .catch((error) => {
-                    console.error('Error checking existing user:', error);
-                    alert('Registration failed: ' + error.message);
+                    console.error('Registration error:', error);
+                    if (error.code === 'auth/email-already-in-use') {
+                        alert('该电子邮件已被注册');
+                    } else if (error.code === 'auth/weak-password') {
+                        alert('密码强度太弱');
+                    } else {
+                        alert('注册失败: ' + error.message);
+                    }
                 });
         });
 
         // 用户登录
         document.getElementById('loginButton').addEventListener('click', () => {
-            const id = document.getElementById('loginId').value.trim();
+            const email = document.getElementById('loginEmail').value.trim();
             const password = document.getElementById('loginPassword').value;
             
-            if (!id || !password) {
-                alert('Please enter ID and password');
+            if (!email || !password) {
+                alert('请输入电子邮件和密码');
                 return;
             }
             
-            // 在数据库中查找用户
-            db.ref('users').orderByChild('id').equalTo(id).once('value')
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        let userData = null;
-                        let userId = null;
-                        let existingUserKeys = [];
-                        
-                        // 获取用户信息
-                        snapshot.forEach((childSnapshot) => {
-                            // 如果有多个相同ID的用户，只取第一个
-                            if (!userData) {
-                                userId = childSnapshot.key;
-                                userData = childSnapshot.val();
-                            }
-                            existingUserKeys.push(childSnapshot.key);
-                        });
-                        
-                        // 验证密码
-                        if (userData && password === userData.password) {
-                            // 检查用户状态
-                            if (userData.status === 'pending') {
-                                // 显示等待审核界面
-                                document.getElementById('loginForm').style.display = 'none';
-                                document.getElementById('registerForm').style.display = 'none';
-                                document.getElementById('pendingForm').style.display = 'block';
-                                document.getElementById('authTitle').textContent = 'Account Pending';
-                                return;
-                            } else if (userData.status === 'active') {
-                                // 清理重复的用户记录，只保留第一个
-                                if (existingUserKeys.length > 1) {
-                                    console.log('Found duplicate user entries, cleaning up...');
-                                    // 保留第一个，删除其余的
-                                    const promises = [];
-                                    for (let i = 1; i < existingUserKeys.length; i++) {
-                                        promises.push(db.ref(`users/${existingUserKeys[i]}`).remove());
-                                    }
-                                    // 等待清理完成
-                                    return Promise.all(promises).then(() => {
-                                        console.log('Cleanup complete, proceeding with login');
-                                        return proceedWithLogin(userId, userData);
+            // 使用Firebase的电子邮件认证登录
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    
+                    // 获取用户信息
+                    return db.ref(`users/${user.uid}`).once('value')
+                        .then((snapshot) => {
+                            if (snapshot.exists()) {
+                                const userData = snapshot.val();
+                                
+                                // 检查用户状态
+                                if (userData.status === 'pending') {
+                                    // 显示等待审核界面
+                                    document.getElementById('loginForm').style.display = 'none';
+                                    document.getElementById('registerForm').style.display = 'none';
+                                    document.getElementById('pendingForm').style.display = 'block';
+                                    document.getElementById('authTitle').textContent = '账户待审核';
+                                    
+                                    // 登出用户，因为他们还没有被批准
+                                    return auth.signOut().then(() => {
+                                        throw new Error('账户待审核');
+                                    });
+                                } else if (userData.status === 'active') {
+                                    // 登录成功，更新当前用户信息
+                                    currentUser = user;
+                                    userRole = userData.role || 'User';
+                                    
+                                    // 隐藏登录界面
+                                    document.getElementById('authContainer').style.display = 'none';
+                                    
+                                    // 加载数据
+                                    loadQuantitiesFromFirebase();
+                                } else {
+                                    // 登出用户
+                                    return auth.signOut().then(() => {
+                                        throw new Error('您的账户状态异常，请联系管理员');
                                     });
                                 }
-                                
-                                // 如果没有重复项，直接登录
-                                return proceedWithLogin(userId, userData);
                             } else {
-                                alert('Your account status is abnormal, please contact an administrator');
+                                // 如果用户存在于认证系统但没有数据库记录，创建一个
+                                return db.ref(`users/${user.uid}`).set({
+                                    email: user.email,
+                                    name: user.email.split('@')[0], // 使用邮箱前缀作为默认名称
+                                    role: 'User',
+                                    status: 'pending',
+                                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                                }).then(() => {
+                                    // 显示等待审核界面
+                                    document.getElementById('loginForm').style.display = 'none';
+                                    document.getElementById('registerForm').style.display = 'none';
+                                    document.getElementById('pendingForm').style.display = 'block';
+                                    document.getElementById('authTitle').textContent = '账户待审核';
+                                    
+                                    // 登出用户，因为他们还没有被批准
+                                    return auth.signOut().then(() => {
+                                        throw new Error('账户待审核');
+                                    });
+                                });
                             }
-                        } else {
-                            alert('Incorrect password');
-                        }
-                    } else {
-                        alert('User does not exist');
-                    }
+                        });
                 })
                 .catch((error) => {
                     console.error('Login error:', error);
-                    alert('Login failed: ' + error.message);
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                        alert('电子邮件或密码不正确');
+                    } else if (error.message === '账户待审核') {
+                        // 已经显示了等待审核界面，不需要额外提示
+                    } else {
+                        alert('登录失败: ' + error.message);
+                    }
                 });
         });
 
@@ -2163,12 +2160,12 @@
         function logout() {
             auth.signOut()
                 .then(() => {
+                    console.log('用户已登出');
                     currentUser = null;
-                    document.getElementById('authContainer').style.display = 'flex';
-                    document.getElementById('userInfo').style.display = 'none';
+                    userRole = null;
                 })
                 .catch((error) => {
-                    console.error('Logout error:', error);
+                    console.error('登出错误:', error);
                 });
         }
 
@@ -2614,12 +2611,12 @@
                 if (hasAddOn) {
                     result += ' 💥Add On💥';
                 }
-                result += '\n\n';
-                // 添加Order By信息
+                result += '\n';
+                // 添加Order By信息，不空行
                 result += 'Order By: (' + userName + ')\n\n';
             } else {
                 result += 'Kedai: 未选择\n';
-                // 添加Order By信息
+                // 添加Order By信息，不空行
                 result += 'Order By: (' + userName + ')\n\n';
             }
 
@@ -2642,11 +2639,8 @@
                             stock: stock
                         });
 
-                        if (category === 'Chocolate') {
-                            totalItems += 1;
-                        } else {
-                            totalItems += parseInt(quantity);
-                        }
+                        // 修复totalItems计算，确保每个商品都被计入
+                        totalItems += parseInt(quantity);
                         break;
                     }
                 }
@@ -2673,7 +2667,7 @@
                 }
             }
 
-            result += '\nAirport Stock Order: smartprofits.github.io/order/';
+            result += '\n_App Version 1.1_';
             return result;
         }
 
@@ -2761,18 +2755,7 @@
             
             toggleItems(); // 初始化商品选择框
             
-            // 先进行匿名认证
-            firebase.auth().signInAnonymously()
-                .then(() => {
-                    console.log('Anonymous auth successful');
-                })
-                .catch((error) => {
-                    console.error('Anonymous auth failed:', error);
-                    const productList = document.getElementById('productList');
-                    if (productList) {
-                        productList.innerHTML = '<div class="error-message">无法连接到数据库，请稍后再试</div>';
-                    }
-                });
+            // 检查用户是否已登录，Firebase的onAuthStateChanged会自动处理认证状态
         }
 
         // 添加选择效果的JavaScript
@@ -2802,10 +2785,7 @@
         }
 
         function addRippleEffect(element, event) {
-            // 在低性能模式下不添加涟漪效果
-            if (document.body.classList.contains('low-perf-mode')) {
-                return;
-            }
+            // 删除了低性能模式检查
             
             const ripple = document.createElement('div');
             ripple.classList.add('ripple');
@@ -2907,9 +2887,7 @@
             const isVibrationEnabled = localStorage.getItem('vibration-enabled') !== 'disabled';
             toggleVibration(isVibrationEnabled);
             
-            // 加载性能模式设置
-            const isLowPerfMode = localStorage.getItem('lowPerfMode') === 'true';
-            togglePerformanceMode(isLowPerfMode);
+            // 删除了性能模式设置的代码
         });
 
         // 修改主题切换函数
@@ -2969,38 +2947,6 @@
                 }
             }
         });
-
-        // 添加低性能模式的处理逻辑
-        const lowPerfModeToggle = document.getElementById('lowPerfModeToggle');
-        lowPerfModeToggle.addEventListener('change', function() {
-            if (this.checked) {
-                document.body.classList.add('low-perf-mode');
-            } else {
-                document.body.classList.remove('low-perf-mode');
-            }
-            // 保存设置到 localStorage
-            localStorage.setItem('lowPerfMode', this.checked);
-        });
-
-        // 页面加载时检查之前的设置
-        if (localStorage.getItem('lowPerfMode') === 'true') {
-            lowPerfModeToggle.checked = true;
-            document.body.classList.add('low-perf-mode');
-        }
-
-        // 添加性能模式切换函数
-        function togglePerformanceMode(isLowPerf) {
-            if (isLowPerf) {
-                document.body.classList.add('low-perf-mode');
-                document.getElementById('low-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-                document.getElementById('high-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-            } else {
-                document.body.classList.remove('low-perf-mode');
-                document.getElementById('low-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                document.getElementById('high-perf-btn').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-            }
-            localStorage.setItem('lowPerfMode', isLowPerf);
-        }
 
         // 打开管理员面板
         function openAdminPanel() {

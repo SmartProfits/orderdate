@@ -1,6 +1,6 @@
 {
   "name": "Airport Stock Request",
-  "short_name": "AirportStock",
+  "short_name": "SmartProfits",
   "description": "Stock request application for airport stores",
   "start_url": "./?v=1.0.1",
   "scope": "./",
