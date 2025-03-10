@@ -1,19 +1,19 @@
 {
-  "name": "Airport Stock Request",
-  "short_name": "SmartProfits",
-  "description": "Stock request application for airport stores",
-  "start_url": "./?v=1.0.1",
+  "name": "SmartProfits Inventory Management",
+  "short_name": "Inventory",
+  "description": "Inventory management system for SmartProfits",
+  "start_url": "./?v=1.0.0",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1a1f35",
+  "background_color": "#f5f7fa",
+  "theme_color": "#003974",
   "icons": [
     {
-      "src": "icons/s2.png",
+      "src": "icons/inventory-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "version": "1.0.1"
+  "version": "1.0.0"
 } 

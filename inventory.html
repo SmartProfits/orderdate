@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory - SmartProfits Management System</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#003974">
+  <meta name="description" content="SmartProfits Inventory Management System">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/inventory-icon.png">
+  <link rel="apple-touch-icon" href="icons/inventory-icon.png">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  
+  <!-- Google Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Basic Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    html, body {
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      position: fixed;
+      font-family: 'Roboto', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+    
+    /* Header and Navigation */
+    .header {
+      background: #003974;
+      color: white;
+      padding: 16px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      height: 56px;
+    }
+    
+    .header h1 {
+      font-size: 20px;
+      font-weight: 500;
+    }
+    
+    .nav-icon {
+      cursor: pointer;
+    }
+    
+    /* Side Navigation */
+    .sidenav {
+      height: 100%;
+      width: 0;
+      position: fixed;
+      z-index: 1001;
+      top: 0;
+      left: 0;
+      background-color: white;
+      overflow-x: hidden;
+      transition: 0.3s;
+      box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+      padding-top: 60px;
+    }
+    
+    .sidenav a {
+      padding: 16px;
+      text-decoration: none;
+      font-size: 16px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      transition: 0.3s;
+    }
+    
+    .sidenav a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .sidenav .material-icons {
+      margin-right: 16px;
+    }
+    
+    .sidenav .closebtn {
+      position: absolute;
+      top: 0;
+      right: 10px;
+      font-size: 36px;
+      margin-left: 50px;
+    }
+    
+    /* Main Content */
+    .main-content {
+      margin-top: 56px;
+      padding: 16px;
+      height: calc(100% - 56px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Search Bar */
+    .search-container {
+      margin-bottom: 16px;
+      position: relative;
+    }
+    
+    .search-container .material-icons {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      color: #666;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 10px 10px 10px 40px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 16px;
+      background: white;
+    }
+    
+    /* Filter Container */
+    .filter-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+      width: 100%;
+    }
+    
+    .filter-button {
+      background: white;
+      border: 1px solid #ddd;
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    .filter-button.active {
+      background: #003974;
+      color: white;
+      border-color: #003974;
+    }
+    
+    /* Cards Grid */
+    .cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      padding-bottom: 70px; /* Make space for the FAB */
+    }
+    
+    .card {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .card-image {
+      height: 120px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .card-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 0.3s;
+      background-color: #f8f8f8;
+    }
+    
+    .card:hover .card-image img {
+      transform: scale(1.05);
+    }
+    
+    .card-content {
+      padding: 16px;
+    }
+    
+    .card-title {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+    
+    .card-info {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #555;
+    }
+    
+    .card-info .material-icons {
+      font-size: 18px;
+      margin-right: 8px;
+      color: #003974;
+    }
+    
+    .card-category {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 57, 116, 0.8);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+    }
+    
+    .card-actions {
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #eee;
+    }
+    
+    .card-actions button {
+      background: transparent;
+      border: none;
+      color: #003974;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px;
+      font-size: 13px;
+    }
+    
+    /* Loading and Messages */
+    .loading-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+    }
+    
+    .loading-spinner {
+      border: 4px solid rgba(0, 57, 116, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid #003974;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      color: #d9534f;
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    .no-items-message {
+      text-align: center;
+      color: #666;
+      margin: 40px 0;
+    }
+    
+    /* Floating Action Button */
+    .fab {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #003974;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      cursor: pointer;
+      transition: background 0.3s;
+      z-index: 900;
+    }
+    
+    .fab:hover {
+      background: #002a63;
+    }
+    
+    /* Media Queries */
+    @media (max-width: 600px) {
+      .header h1 {
+        font-size: 18px;
+      }
+      
+      .cards-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    /* Expired indicator */
+    .expired {
+      color: #d9534f;
+    }
+    
+    .expiring-soon {
+      color: #f0ad4e;
+    }
+    
+    /* No image placeholder */
+    .no-image-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      width: 100%;
+      color: #ccc;
+      background-color: #f8f8f8;
+    }
+    
+    .no-image-placeholder .material-icons {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+    
+    .no-image-placeholder span {
+      font-size: 14px;
+    }
+
+    /* PWA Update Toast */
+    #update-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #003974;
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1500;
+      min-width: 280px;
+      max-width: 90%;
+      display: none;
+    }
+    
+    #update-toast button {
+      background: white;
+      color: #003974;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 16px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="nav-icon" onclick="openNav()">
+      <i class="material-icons">menu</i>
+    </div>
+    <h1>Inventory Management</h1>
+    <div class="nav-icon" id="logout-button">
+      <i class="material-icons">logout</i>
+    </div>
+  </header>
+  
+  <!-- Side Navigation -->
+  <div id="mySidenav" class="sidenav">
+    <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+    <a href="#"><i class="material-icons">dashboard</i> Dashboard</a>
+    <a href="#" class="active"><i class="material-icons">inventory_2</i> Inventory</a>
+    <a href="#"><i class="material-icons">add_box</i> Add Stock</a>
+    <a href="#"><i class="material-icons">remove_shopping_cart</i> Stock Out</a>
+    <a href="#"><i class="material-icons">history</i> History</a>
+    <a href="#"><i class="material-icons">settings</i> Settings</a>
+    <a href="#" id="sidebar-logout"><i class="material-icons">logout</i> Logout</a>
+  </div>
+  
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Search Bar -->
+    <div class="search-container">
+      <i class="material-icons">search</i>
+      <input type="text" class="search-input" id="search-input" placeholder="Search inventory...">
+    </div>
+    
+    <!-- Filters -->
+    <div class="filter-container">
+      <button class="filter-button active" data-category="all">
+        <i class="material-icons">category</i> All
+      </button>
+      <button class="filter-button" data-category="Office">
+        <i class="material-icons">work</i> Office
+      </button>
+      <button class="filter-button" data-category="Seafood">
+        <i class="material-icons">set_meal</i> Seafood
+      </button>
+      <button class="filter-button" data-category="Ban Heang">
+        <i class="material-icons">restaurant</i> Ban Heang
+      </button>
+      <button class="filter-button" data-category="Hop Hup">
+        <i class="material-icons">lunch_dining</i> Hop Hup
+      </button>
+      <button class="filter-button" data-category="Tenom Kopi">
+        <i class="material-icons">coffee</i> Tenom Kopi
+      </button>
+      <button class="filter-button" data-category="Amplang">
+        <i class="material-icons">fastfood</i> Amplang
+      </button>
+      <button class="filter-button" data-category="Chocolate">
+        <i class="material-icons">bakery_dining</i> Chocolate
+      </button>
+      <button class="filter-button" data-category="Other">
+        <i class="material-icons">more_horiz</i> Other
+      </button>
+    </div>
+    
+    <!-- Loading Spinner - Initially Visible -->
+    <div class="loading-container" id="loading-container">
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <!-- Error Message - Initially Hidden -->
+    <p class="error-message" id="error-message" style="display: none;"></p>
+    
+    <!-- No Items Message - Initially Hidden -->
+    <p class="no-items-message" id="no-items-message" style="display: none;">
+      No inventory items found. Use the + button to add new items.
+    </p>
+    
+    <!-- Cards Container -->
+    <div class="cards-container" id="inventory-cards" style="display: none;">
+      <!-- Cards will be dynamically added here -->
+    </div>
+  </div>
+  
+  <!-- Floating Action Button -->
+  <div class="fab" id="add-item-fab">
+    <i class="material-icons">add</i>
+  </div>
+
+  <!-- PWA Update Toast -->
+  <div id="update-toast">
+    <span>New version available!</span>
+    <button id="update-button">Update</button>
+  </div>
+  
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDAK5KVv9oln2qS5EfNzox1snM19wa83-o",
+      authDomain: "smart-profits-stock.firebaseapp.com",
+      databaseURL: "https://smart-profits-stock-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "smart-profits-stock",
+      storageBucket: "smart-profits-stock.firebasestorage.app",
+      messagingSenderId: "1029424292465",
+      appId: "1:1029424292465:web:6de46925db8818d462b1d0",
+      measurementId: "G-R0K4Q7JTGE"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+    
+    // DOM Elements
+    const searchInput = document.getElementById('search-input');
+    const inventoryCards = document.getElementById('inventory-cards');
+    const loadingContainer = document.getElementById('loading-container');
+    const errorMessage = document.getElementById('error-message');
+    const noItemsMessage = document.getElementById('no-items-message');
+    const filterButtons = document.querySelectorAll('.filter-button');
+    const logoutButton = document.getElementById('logout-button');
+    const sidebarLogout = document.getElementById('sidebar-logout');
+    const addItemFab = document.getElementById('add-item-fab');
+    const updateToast = document.getElementById('update-toast');
+    const updateButton = document.getElementById('update-button');
+    
+    // Current filter and search state
+    let currentFilter = 'all';
+    let searchTerm = '';
+    
+    // Service Worker Registration
+    let newWorker;
+    let refreshing = false;
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => {
+            console.log('Service Worker registered with scope:', reg.scope);
+            
+            // Check for Service Worker updates
+            reg.addEventListener('updatefound', () => {
+              console.log('Service Worker update found!');
+              newWorker = reg.installing;
+              
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('New Service Worker installed, update available');
+                  showUpdateToast();
+                }
+              });
+            });
+          })
+          .catch(error => {
+            console.error('Service Worker registration failed:', error);
+          });
+        
+        // Handle page refresh after Service Worker update
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+      });
+    }
+    
+    // Function to show update toast
+    function showUpdateToast() {
+      updateToast.style.display = 'flex';
+    }
+    
+    // Update button click handler
+    updateButton.addEventListener('click', () => {
+      updateToast.style.display = 'none';
+      if (newWorker) {
+        newWorker.postMessage({ type: 'SKIP_WAITING' });
+      }
+    });
+    
+    // Initialize - Check Auth State
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        // User is logged in, load data
+        loadInventoryData();
+      } else {
+        // User is not logged in, redirect to login page
+        window.location.href = 'login.html';
+      }
+    });
+    
+    // Load Inventory Data
+    function loadInventoryData() {
+      // Show loading spinner
+      loadingContainer.style.display = 'flex';
+      inventoryCards.style.display = 'none';
+      errorMessage.style.display = 'none';
+      noItemsMessage.style.display = 'none';
+      
+      // Get inventory paths based on user role (this would be customized based on your access control)
+      const inventoryPaths = ['inventory/office', 'inventory/kepayan'];
+      
+      // Clear existing cards
+      inventoryCards.innerHTML = '';
+      
+      let totalItems = 0;
+      
+      Promise.all(inventoryPaths.map(path => db.ref(path).once('value')))
+        .then(snapshots => {
+          // Process all snapshots
+          snapshots.forEach(snapshot => {
+            snapshot.forEach(itemSnapshot => {
+              const item = itemSnapshot.val();
+              item.id = itemSnapshot.key;
+              item.path = snapshot.ref.toString(); // Store the reference path
+              
+              // Add the card if it matches current filter and search
+              if (matchesFilterAndSearch(item, currentFilter, searchTerm)) {
+                addItemCard(item);
+                totalItems++;
+              }
+            });
+          });
+          
+          // Hide loading spinner
+          loadingContainer.style.display = 'none';
+          
+          if (totalItems > 0) {
+            // Show inventory cards
+            inventoryCards.style.display = 'grid';
+          } else {
+            // Show no items message
+            noItemsMessage.style.display = 'block';
+          }
+        })
+        .catch(error => {
+          // Hide loading spinner and show error
+          loadingContainer.style.display = 'none';
+          errorMessage.textContent = 'Failed to load inventory: ' + error.message;
+          errorMessage.style.display = 'block';
+          console.error('Error loading inventory:', error);
+        });
+    }
+    
+    // Add a single item card to the container
+    function addItemCard(item) {
+      // Create card element
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${item.id}`;
+      
+      // Check if expired or expiring soon
+      let expiryClass = '';
+      let expiryText = 'No expiry date';
+      
+      // Check for both expiryDate and expiredDate fields
+      const expiryDateString = item.expiryDate || item.expiredDate || item.expiry_date || null;
+      
+      if (expiryDateString) {
+        let expiryDate;
+        
+        // Check if date is in DD-MM-YYYY format and convert if needed
+        if (expiryDateString.includes('-') && expiryDateString.split('-').length === 3) {
+          const parts = expiryDateString.split('-');
+          // Check if it's in DD-MM-YYYY format
+          if (parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+            expiryDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          } else {
+            expiryDate = new Date(expiryDateString);
+          }
+        } else {
+          expiryDate = new Date(expiryDateString);
+        }
+        
+        const today = new Date();
+        const daysUntilExpiry = Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry < 0) {
+          expiryClass = 'expired';
+          expiryText = `Expired ${Math.abs(daysUntilExpiry)} days ago`;
+        } else if (daysUntilExpiry < 30) {
+          expiryClass = 'expiring-soon';
+          expiryText = `Expires in ${daysUntilExpiry} days`;
+        } else {
+          expiryText = `Expires on ${formatDate(expiryDate)}`;
+        }
+      }
+      
+      // Build card content
+      card.innerHTML = `
+        <div class="card-image">
+          ${item.imageUrl 
+            ? `<img src="${item.imageUrl}" alt="${item.name}">`
+            : `<div class="no-image-placeholder">
+                <i class="material-icons">image_not_supported</i>
+                <span>No Image</span>
+               </div>`
+          }
+          <div class="card-category">${item.category || 'Uncategorized'}</div>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">${item.name}</h2>
+          <div class="card-info">
+            <i class="material-icons">inventory_2</i>
+            <span>${item.quantity} ${item.unit || 'pcs'}</span>
+          </div>
+          <div class="card-info ${expiryClass}">
+            <i class="material-icons">event</i>
+            <span>${expiryText}</span>
+          </div>
+          <div class="card-info">
+            <i class="material-icons">place</i>
+            <span>${item.location || 'Unknown location'}</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button onclick="editItem('${item.id}')">
+            <i class="material-icons">edit</i> Edit
+          </button>
+          <button onclick="stockOut('${item.id}')">
+            <i class="material-icons">remove_circle</i> Stock Out
+          </button>
+        </div>
+      `;
+      
+      // Add card to container
+      inventoryCards.appendChild(card);
+    }
+    
+    // Check if an item matches the current filter and search term
+    function matchesFilterAndSearch(item, filter, search) {
+      // Check if matches filter
+      if (filter !== 'all' && item.category !== filter) {
+        return false;
+      }
+      
+      // Check if matches search
+      if (search && !item.name.toLowerCase().includes(search.toLowerCase())) {
+        return false;
+      }
+      
+      return true;
+    }
+    
+    // Format date for display
+    function formatDate(date) {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+    
+    // Edit item function (placeholder)
+    function editItem(id) {
+      console.log('Edit item:', id);
+      // Implement edit functionality or redirect to edit page
+      alert('Edit functionality would be implemented here');
+    }
+    
+    // Stock out function (placeholder)
+    function stockOut(id) {
+      console.log('Stock out item:', id);
+      // Implement stock out functionality
+      alert('Stock out functionality would be implemented here');
+    }
+    
+    // Side navigation functions
+    function openNav() {
+      document.getElementById("mySidenav").style.width = "250px";
+    }
+    
+    function closeNav() {
+      document.getElementById("mySidenav").style.width = "0";
+    }
+    
+    // Filter button click handler
+    filterButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        filterButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        currentFilter = button.dataset.category;
+        loadInventoryData(); // Reload with new filter
+      });
+    });
+    
+    // Search input handler
+    searchInput.addEventListener('input', (e) => {
+      searchTerm = e.target.value.trim();
+      loadInventoryData(); // Reload with new search term
+    });
+    
+    // Logout handler
+    function handleLogout() {
+      auth.signOut()
+        .then(() => {
+          // Redirect to login page
+          window.location.href = 'login.html';
+        })
+        .catch((error) => {
+          console.error('Logout error:', error);
+          alert('Failed to log out: ' + error.message);
+        });
+    }
+    
+    logoutButton.addEventListener('click', handleLogout);
+    sidebarLogout.addEventListener('click', handleLogout);
+    
+    // Add item button handler (placeholder)
+    addItemFab.addEventListener('click', () => {
+      alert('Add item functionality would be implemented here');
+      // Implement add item functionality or redirect to add item page
+    });
+  </script>
+</body>
+</html> 
