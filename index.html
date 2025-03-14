@@ -1058,7 +1058,7 @@
     <!-- 侧边导航 -->
     <div id="mySidenav" class="sidenav">
       <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-      <a href="#"><i class="material-icons">dashboard</i></a>
+      <a href="#"><i class="material-icons">dashboard</i> Dashboard</a>
       <a href="#" class="active"><i class="material-icons">inventory_2</i> Inventory List</a>
       <a href="#" id="nav-add-inventory"><i class="material-icons">add_box</i> Add Inventory</a>
       <a href="#" id="nav-add-stock"><i class="material-icons">add_shopping_cart</i> Add Stock</a>
@@ -2575,15 +2575,19 @@
               if (!groupedRecords[dateKey][commentKey]) {
                 groupedRecords[dateKey][commentKey] = {
                   records: [],
-                  totalItems: 0,
+                  totalByUnit: {}, // 按单位统计总数
                   commentName: commentKey,
                   date: recordDate
                 };
               }
               
-              // 添加记录并更新总数
+              // 添加记录并更新按单位分类的总数
               groupedRecords[dateKey][commentKey].records.push(record);
-              groupedRecords[dateKey][commentKey].totalItems += record.quantity;
+              const unit = record.unit || 'pcs';
+              if (!groupedRecords[dateKey][commentKey].totalByUnit[unit]) {
+                groupedRecords[dateKey][commentKey].totalByUnit[unit] = 0;
+              }
+              groupedRecords[dateKey][commentKey].totalByUnit[unit] += Math.abs(record.quantity);
             });
             
             // 为每个分组创建卡片
@@ -2595,6 +2599,12 @@
                 
                 // 格式化日期和时间
                 const formattedDate = formatDate(group.date);
+                
+                // 生成按单位分类的总数显示
+                let unitSummary = '';
+                Object.entries(group.totalByUnit).forEach(([unit, total]) => {
+                  unitSummary += `<div>${total} ${unit}</div>`;
+                });
                 
                 // 卡片头部
                 const cardHeader = document.createElement('div');
@@ -2616,7 +2626,7 @@
                   </div>
                   <div style="text-align: right;">
                     <div style="font-size: 14px; font-weight: bold; color: #003974;">
-                      ${group.totalItems} items
+                      ${unitSummary}
                     </div>
                     <div style="font-size: 12px; color: #777;">
                       ${formattedDate}
@@ -3391,7 +3401,62 @@
       showPage('inventory-page');
     });
     
-    // 加载Stock Out页面的商品
+    // 添加全局变量用于跟踪所有选中的商品
+    // 在JavaScript代码开始处添加全局变量
+    let globalSelectedStockOutItems = [];  // 全局变量保存所有选中的商品
+    
+    // 修改updateSelectedItems函数
+    function updateSelectedItems() {
+      // 仅更新当前可见的选中项
+      selectedItems = [];
+      
+      document.querySelectorAll('#stock-out-cards .card .item-checkbox:checked').forEach(checkbox => {
+        const card = checkbox.closest('.card');
+        const itemId = card.id.replace('stock-out-card-', '');
+        const locationPath = card.getAttribute('data-location-path');
+        const name = card.getAttribute('data-name');
+        const category = card.getAttribute('data-category');
+        const unit = card.getAttribute('data-unit');
+        const location = card.getAttribute('data-location');
+        const quantityInput = card.querySelector(`#item-stock-out-card-${itemId}-quantity`);
+        const quantity = quantityInput ? parseFloat(quantityInput.value) : 1;
+        const maxQuantity = parseFloat(card.getAttribute('data-quantity'));
+        
+        const selectedItem = {
+          id: itemId,
+          locationPath: locationPath,
+          name: name,
+          category: category,
+          unit: unit,
+          location: location,
+          quantity: quantity,
+          maxQuantity: maxQuantity
+        };
+        
+        selectedItems.push(selectedItem);
+        
+        // 更新全局选中项
+        // 首先检查该项是否已存在于全局列表中
+        const existingIndex = globalSelectedStockOutItems.findIndex(item => item.id === itemId);
+        if (existingIndex !== -1) {
+          // 更新数量和其他可能变化的值
+          globalSelectedStockOutItems[existingIndex].quantity = quantity;
+        } else {
+          // 添加到全局列表
+          globalSelectedStockOutItems.push(selectedItem);
+        }
+      });
+      
+      // 从全局列表中移除取消选中的项
+      document.querySelectorAll('#stock-out-cards .card .item-checkbox:not(:checked)').forEach(checkbox => {
+        const card = checkbox.closest('.card');
+        const itemId = card.id.replace('stock-out-card-', '');
+        
+        globalSelectedStockOutItems = globalSelectedStockOutItems.filter(item => item.id !== itemId);
+      });
+    }
+    
+    // 修改loadStockOutItems函数，使用全局选中状态
     function loadStockOutItems() {
       // 显示加载指示器
       stockOutLoading.style.display = 'flex';
@@ -3479,6 +3544,27 @@
                 allItems.forEach(item => {
                   addStockOutItemCard(item);
                 });
+                
+                // 恢复选中状态 - 使用全局选中项列表
+                globalSelectedStockOutItems.forEach(savedItem => {
+                  const card = document.getElementById(`stock-out-card-${savedItem.id}`);
+                  if (card) {
+                    const checkbox = card.querySelector('.item-checkbox');
+                    if (checkbox) {
+                      checkbox.checked = true;
+                      card.classList.add('selected');
+                      
+                      // 恢复数量
+                      const quantityInput = card.querySelector(`#item-stock-out-card-${savedItem.id}-quantity`);
+                      if (quantityInput) {
+                        quantityInput.value = savedItem.quantity;
+                      }
+                    }
+                  }
+                });
+                
+                // 应用保存的网格视图
+                updateStockOutGridView(currentStockOutGridView);
                 
                 // 显示卡片
                 stockOutCards.style.display = 'grid';
@@ -3608,6 +3694,8 @@
       const checkbox = card.querySelector('.item-checkbox');
       checkbox.addEventListener('change', () => {
         card.classList.toggle('selected', checkbox.checked);
+        // 更新选中项目
+        updateSelectedItems();
       });
     }
     
@@ -3879,149 +3967,6 @@
       batchStockOutModal.style.display = 'block';
     });
 
-    // 更新已选项目函数
-    function updateSelectedItems() {
-      selectedItems = [];
-      
-      document.querySelectorAll('#stock-out-cards .card .item-checkbox:checked').forEach(checkbox => {
-        const card = checkbox.closest('.card');
-        const itemId = card.id.replace('stock-out-card-', '');
-        const locationPath = card.getAttribute('data-location-path');
-        const name = card.getAttribute('data-name');
-        const category = card.getAttribute('data-category');
-        const unit = card.getAttribute('data-unit');
-        const location = card.getAttribute('data-location');
-        const quantityInput = card.querySelector(`#item-stock-out-card-${itemId}-quantity`);
-        const quantity = quantityInput ? parseFloat(quantityInput.value) : 1;
-        const maxQuantity = parseFloat(card.getAttribute('data-quantity'));
-        
-        selectedItems.push({
-          id: itemId,
-          locationPath: locationPath,
-          name: name,
-          category: category,
-          unit: unit,
-          location: location,
-          quantity: quantity,
-          maxQuantity: maxQuantity
-        });
-      });
-    }
-    
-    // 修改loadStockOutItems函数以确保正确应用网格视图
-    function loadStockOutItems() {
-      // 显示加载指示器
-      stockOutLoading.style.display = 'flex';
-      stockOutCards.style.display = 'none';
-      stockOutError.style.display = 'none';
-      stockOutNoItems.style.display = 'none';
-      
-      // 获取用户信息
-      const user = auth.currentUser;
-      if (!user) {
-        showPage('login-page');
-        return;
-      }
-      
-      // 获取用户角色以确定显示哪些库存
-      getUserRole(user.uid)
-        .then(role => {
-          let paths = [];
-          
-          switch(role) {
-            case 'sadmin':
-              // sadmin可以查看所有库存
-              paths = ['inventory/office', 'inventory/kepayan'];
-              break;
-            case 'admino':
-              // admino只能看到办公室库存
-              paths = ['inventory/office'];
-              break;
-            case 'admink':
-              // admink只能看到kepayan库存
-              paths = ['inventory/kepayan'];
-              break;
-            default:
-              // 其他用户显示错误
-              stockOutLoading.style.display = 'none';
-              stockOutError.style.display = 'block';
-              stockOutError.textContent = 'You do not have permission to view inventory';
-              return;
-          }
-          
-          // 获取库存数据
-          const promises = paths.map(path => {
-            return db.ref(path).once('value')
-              .then(snapshot => {
-                const items = [];
-                snapshot.forEach(childSnapshot => {
-                  const item = childSnapshot.val();
-                  
-                  // 只添加有库存的商品
-                  if (item.quantity > 0) {
-                    // 添加ID和位置信息
-                    item.id = childSnapshot.key;
-                    item.locationPath = path;
-                    
-                    // 应用筛选器 (如果设置)
-                    const filterButton = document.querySelector('#stock-out-page .filter-button.active');
-                    const currentFilter = filterButton ? filterButton.dataset.category : 'all';
-                    
-                    if (currentFilter === 'all' || item.category === currentFilter) {
-                      // 应用搜索过滤器 (如果有)
-                      const searchTerm = stockOutSearch.value.toLowerCase().trim();
-                      if (!searchTerm || 
-                          item.name.toLowerCase().includes(searchTerm) || 
-                          (item.category && item.category.toLowerCase().includes(searchTerm))) {
-                        items.push(item);
-                      }
-                    }
-                  }
-                });
-                return items;
-              });
-          });
-          
-          // 处理所有数据
-          return Promise.all(promises)
-            .then(results => {
-              // 合并所有结果
-              const allItems = results.flat();
-              
-              // 清空卡片容器
-              stockOutCards.innerHTML = '';
-              
-              if (allItems.length > 0) {
-                // 添加每个项目
-                allItems.forEach(item => {
-                  addStockOutItemCard(item);
-                });
-                
-                // 应用保存的网格视图
-                updateStockOutGridView(currentStockOutGridView);
-                
-                // 显示卡片
-                stockOutCards.style.display = 'grid';
-                stockOutNoItems.style.display = 'none';
-              } else {
-                // 显示无项目消息
-                stockOutCards.style.display = 'none';
-                stockOutNoItems.style.display = 'block';
-              }
-              
-              // 隐藏加载和错误
-              stockOutLoading.style.display = 'none';
-              stockOutError.style.display = 'none';
-            });
-        })
-        .catch(error => {
-          console.error('Error loading inventory:', error);
-          stockOutLoading.style.display = 'none';
-          stockOutError.style.display = 'block';
-          stockOutError.textContent = 'Failed to load inventory: ' + error.message;
-        });
-    }
-
     // 关闭批量出库模态框
     function closeBatchStockOutModal() {
       batchStockOutModal.style.display = 'none';
@@ -4102,6 +4047,9 @@
         
         // 保存当前选中的项目数量，因为后面会清空selectedItems
         const processedItemsCount = selectedItems.length;
+        
+        // 成功后清空全局选中项
+        globalSelectedStockOutItems = [];
         
         // 重置选择状态 - 更新代码以移除对不存在变量的引用
         // 取消所有选中的复选框
